@@ -1,0 +1,2 @@
+org.springframework.test.context.ContextCustomizerFactory = \
+    um.tf2025.config.SqlTestContainersSpringContextCustomizerFactory
