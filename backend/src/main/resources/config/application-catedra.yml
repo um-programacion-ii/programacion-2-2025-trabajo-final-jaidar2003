@@ -1,6 +1,42 @@
+server:
+  port: 8080
+
+catedra:
+  auth:
+    base-url: ${CATEDRA_AUTH_BASE_URL:http://catedra-auth.local}
+    endpoints:
+      register: /api/alumnos/register
+      login: /api/auth/login
+      refresh: /api/auth/refresh
+    timeouts:
+      connect-ms: 2000
+      read-ms: 4000
+    mock: ${CATEDRA_AUTH_MOCK:false}
+
+# permitir nuestros endpoints públicos
 spring:
   application:
     name: tf2025
+  security:
+    filter:
+      dispatcher-types: REQUEST, ERROR
+  docker:
+    compose:
+      enabled: false
+  mail:
+    host: localhost
+    port: 25
+    username:
+    password:
+
+# JWT settings required by JHipster when running under this profile
+jhipster:
+  security:
+    authentication:
+      jwt:
+        base64-secret: ${JWT_BASE64_SECRET:ODIwYjI5NmYwMDUyM2EwNDM4NWUyY2ZmNGEzY2NlYmYyMWMyZDlhNWQxNzdjMDNmYjQyNzk3ZGNlNmEzYjQ4OGViZDQzMmZhZjAwYTkzMDkyM2QzMjhiNzA1NDE4MjE0NDc1MGRlYjBkMWU5MTNjZDc1OTMyYTU5NGFiZGM1YTA=}
+        token-validity-in-seconds: ${JWT_TOKEN_TTL:86400}
+        token-validity-in-seconds-for-remember-me: ${JWT_TOKEN_TTL_REMEMBER:2592000}
 
 proxy:
   kafka:

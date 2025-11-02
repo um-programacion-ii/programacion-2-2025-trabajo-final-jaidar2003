@@ -59,11 +59,16 @@ spring:
     cache-duration: PT1S # 1 second, see the ISO 8601 standard
   thymeleaf:
     cache: false
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
 
 server:
   port: 8080
   # make sure requests the proxy uri instead of the server one
   forward-headers-strategy: native
+
 
 # ===================================================================
 # JHipster specific properties
