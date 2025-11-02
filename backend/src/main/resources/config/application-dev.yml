@@ -114,3 +114,10 @@ jhipster:
 # ===================================================================
 
 # application:
+
+# Proxy optional integrations (Kafka & Redis) for dev. Disabled by default.
+proxy:
+  kafka:
+    enabled: false
+  redis:
+    enabled: false

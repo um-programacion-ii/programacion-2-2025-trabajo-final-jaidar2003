@@ -21,7 +21,7 @@ import um.tf2025.config.ApplicationProperties;
 import um.tf2025.config.CRLFLogConverter;
 
 @SpringBootApplication(exclude = { H2ConsoleAutoConfiguration.class })
-@EnableConfigurationProperties({ LiquibaseProperties.class, ApplicationProperties.class })
+@EnableConfigurationProperties({ LiquibaseProperties.class, ApplicationProperties.class, um.tf2025.config.ProxyProperties.class })
 public class Tf2025App {
 
     private static final Logger LOG = LoggerFactory.getLogger(Tf2025App.class);

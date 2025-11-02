@@ -226,3 +226,22 @@ jhipster:
 # ===================================================================
 
 # application:
+
+
+# ===================================================================
+# Proxy optional integrations (Kafka & Redis). Disabled by default.
+# Enable by setting proxy.kafka.enabled=true and/or proxy.redis.enabled=true
+# You can override values via environment variables.
+# ===================================================================
+proxy:
+  kafka:
+    enabled: false
+  redis:
+    enabled: false
+
+---
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+      - org.springframework.boot.autoconfigure.kafka.KafkaReactiveAutoConfiguration
