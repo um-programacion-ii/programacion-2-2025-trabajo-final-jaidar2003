@@ -26,7 +26,6 @@ public class Venta {
     public Long getId() {
         return id;
     }
-
     public void setId(Long id) {
         this.id = id;
     }
@@ -34,7 +33,6 @@ public class Venta {
     public Evento getEvento() {
         return evento;
     }
-
     public void setEvento(Evento evento) {
         this.evento = evento;
     }
@@ -42,7 +40,6 @@ public class Venta {
     public String getCompradorEmail() {
         return compradorEmail;
     }
-
     public void setCompradorEmail(String compradorEmail) {
         this.compradorEmail = compradorEmail;
     }
@@ -50,7 +47,6 @@ public class Venta {
     public Integer getCantidad() {
         return cantidad;
     }
-
     public void setCantidad(Integer cantidad) {
         this.cantidad = cantidad;
     }
@@ -58,7 +54,6 @@ public class Venta {
     public BigDecimal getTotal() {
         return total;
     }
-
     public void setTotal(BigDecimal total) {
         this.total = total;
     }
@@ -66,7 +61,6 @@ public class Venta {
     public LocalDateTime getFechaHora() {
         return fechaHora;
     }
-
     public void setFechaHora(LocalDateTime fechaHora) {
         this.fechaHora = fechaHora;
     }

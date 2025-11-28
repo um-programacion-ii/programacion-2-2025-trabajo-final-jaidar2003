@@ -32,14 +32,14 @@ public class EventoController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('SCOPE_write') or hasRole('ADMIN')")
+   //@PreAuthorize("hasAuthority('SCOPE_write') or hasRole('ADMIN')")
     public ResponseEntity<Evento> crear(@RequestBody Evento evento) {
         Evento saved = eventoService.save(evento);
         return ResponseEntity.created(URI.create("/api/eventos/" + saved.getId())).body(saved);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_write') or hasRole('ADMIN')")
+    //@PreAuthorize("hasAuthority('SCOPE_write') or hasRole('ADMIN')")
     public ResponseEntity<Evento> actualizar(@PathVariable Long id, @RequestBody Evento evento) {
         return eventoService.findById(id)
                 .map(existing -> {
@@ -50,7 +50,7 @@ public class EventoController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_write') or hasRole('ADMIN')")
+    //@PreAuthorize("hasAuthority('SCOPE_write') or hasRole('ADMIN')")
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         if (eventoService.findById(id).isEmpty()) {
             return ResponseEntity.notFound().build();
