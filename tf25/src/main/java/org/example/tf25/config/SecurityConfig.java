@@ -18,15 +18,18 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectProvider<JwtDecoder> jwtDecoderProvider) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                .requestMatchers("/api/eventos", "/api/eventos/*").permitAll() // listar/obtener públicos
-                .anyRequest().authenticated()
-            );
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        .requestMatchers("/api/eventos", "/api/eventos/**").permitAll()
+                        .requestMatchers("/api/ventas", "/api/ventas/**").permitAll()
+                        .anyRequest().authenticated()
+                );
+
         if (jwtDecoderProvider.getIfAvailable() != null) {
             http.oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
         }
+
         return http.build();
     }
 }

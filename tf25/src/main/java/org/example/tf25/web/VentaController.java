@@ -24,7 +24,6 @@ public class VentaController {
                                     Integer cantidad) {}
 
     @PostMapping
-    @PreAuthorize("hasAuthority('SCOPE_write') or hasRole('ADMIN')")
     public ResponseEntity<Venta> crear(@RequestBody CrearVentaRequest req) {
         Venta v = ventaService.crearVenta(req.eventoId(), req.compradorEmail(), req.cantidad());
         return ResponseEntity.created(URI.create("/api/ventas/" + v.getId())).body(v);

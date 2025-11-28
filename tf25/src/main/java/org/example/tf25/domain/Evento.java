@@ -1,5 +1,6 @@
 package org.example.tf25.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
@@ -25,12 +26,12 @@ public class Evento {
     private BigDecimal precio;
 
     @OneToMany(mappedBy = "evento", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
     private List<Venta> ventas = new ArrayList<>();
 
     public Long getId() {
         return id;
     }
-
     public void setId(Long id) {
         this.id = id;
     }
@@ -38,7 +39,6 @@ public class Evento {
     public String getNombre() {
         return nombre;
     }
-
     public void setNombre(String nombre) {
         this.nombre = nombre;
     }
@@ -46,7 +46,6 @@ public class Evento {
     public String getDescripcion() {
         return descripcion;
     }
-
     public void setDescripcion(String descripcion) {
         this.descripcion = descripcion;
     }
@@ -54,7 +53,6 @@ public class Evento {
     public LocalDateTime getFechaHora() {
         return fechaHora;
     }
-
     public void setFechaHora(LocalDateTime fechaHora) {
         this.fechaHora = fechaHora;
     }
@@ -62,7 +60,6 @@ public class Evento {
     public Integer getCupo() {
         return cupo;
     }
-
     public void setCupo(Integer cupo) {
         this.cupo = cupo;
     }
@@ -70,7 +67,6 @@ public class Evento {
     public BigDecimal getPrecio() {
         return precio;
     }
-
     public void setPrecio(BigDecimal precio) {
         this.precio = precio;
     }
@@ -78,7 +74,6 @@ public class Evento {
     public List<Venta> getVentas() {
         return ventas;
     }
-
     public void setVentas(List<Venta> ventas) {
         this.ventas = ventas;
     }
