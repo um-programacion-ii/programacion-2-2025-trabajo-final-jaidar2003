@@ -58,4 +58,10 @@ public class EventoController {
         eventoService.delete(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/sync")
+    public ResponseEntity<Void> syncEventos() {
+        int count = eventoService.sincronizarEventos();
+        return ResponseEntity.accepted().build();
+    }
 }

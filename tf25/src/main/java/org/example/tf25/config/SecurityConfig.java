@@ -21,8 +21,9 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        .requestMatchers("/api/mock-eventos", "/api/mock/**").permitAll()
                         .requestMatchers("/api/eventos", "/api/eventos/**").permitAll()
-                        .requestMatchers("/api/ventas", "/api/ventas/**").permitAll()
+                        .requestMatchers("/api/ventas", "/api/ventas/**").authenticated()
                         .anyRequest().authenticated()
                 );
 

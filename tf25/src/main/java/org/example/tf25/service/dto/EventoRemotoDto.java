@@ -1,40 +1,34 @@
-package org.example.tf25.domain;
-
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.*;
+package org.example.tf25.service.dto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
-@Entity
-public class Evento {
+public class EventoRemotoDto {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
     private String nombre;
-
     private String descripcion;
-
     private LocalDateTime fechaHora;
-
     private Integer cupo;
-
     private BigDecimal precio;
 
-    @Column(name = "external_id", unique = true)
-    private String externalId;
+    public EventoRemotoDto() {
+    }
 
-    @OneToMany(mappedBy = "evento", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnore
-    private List<Venta> ventas = new ArrayList<>();
+    public EventoRemotoDto(Long id, String nombre, String descripcion,
+                           LocalDateTime fechaHora, Integer cupo, BigDecimal precio) {
+        this.id = id;
+        this.nombre = nombre;
+        this.descripcion = descripcion;
+        this.fechaHora = fechaHora;
+        this.cupo = cupo;
+        this.precio = precio;
+    }
 
     public Long getId() {
         return id;
     }
+
     public void setId(Long id) {
         this.id = id;
     }
@@ -42,6 +36,7 @@ public class Evento {
     public String getNombre() {
         return nombre;
     }
+
     public void setNombre(String nombre) {
         this.nombre = nombre;
     }
@@ -49,6 +44,7 @@ public class Evento {
     public String getDescripcion() {
         return descripcion;
     }
+
     public void setDescripcion(String descripcion) {
         this.descripcion = descripcion;
     }
@@ -56,6 +52,7 @@ public class Evento {
     public LocalDateTime getFechaHora() {
         return fechaHora;
     }
+
     public void setFechaHora(LocalDateTime fechaHora) {
         this.fechaHora = fechaHora;
     }
@@ -63,6 +60,7 @@ public class Evento {
     public Integer getCupo() {
         return cupo;
     }
+
     public void setCupo(Integer cupo) {
         this.cupo = cupo;
     }
@@ -70,22 +68,8 @@ public class Evento {
     public BigDecimal getPrecio() {
         return precio;
     }
+
     public void setPrecio(BigDecimal precio) {
         this.precio = precio;
-    }
-
-    public String getExternalId() {
-        return externalId;
-    }
-
-    public void setExternalId(String externalId) {
-        this.externalId = externalId;
-    }
-
-    public List<Venta> getVentas() {
-        return ventas;
-    }
-    public void setVentas(List<Venta> ventas) {
-        this.ventas = ventas;
     }
 }
