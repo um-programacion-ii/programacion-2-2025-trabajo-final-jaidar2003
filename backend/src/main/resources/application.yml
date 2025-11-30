@@ -25,7 +25,7 @@ logging:
 tf25:
   proxy:
     # más adelante va a apuntar al servicio proxy de la cátedra
-    base-url: http://localhost:8080
+    base-url: http://localhost:8081
   sync:
     # cada cuánto se sincronizan eventos automáticamente (ms)
     fixed-delay-ms: 60000

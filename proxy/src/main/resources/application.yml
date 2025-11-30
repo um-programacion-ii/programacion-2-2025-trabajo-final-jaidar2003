@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: tf25-proxy
+
+server:
+  port: 8081
