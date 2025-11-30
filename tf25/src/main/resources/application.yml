@@ -1,19 +1,15 @@
 spring:
-  application:
-    name: tf25-backend
-
   datasource:
     url: jdbc:postgresql://localhost:5432/tf25
     username: tf25
     password: tf25
-
   jpa:
     hibernate:
       ddl-auto: update
-    open-in-view: false
+    show-sql: false
     properties:
-      hibernate.format_sql: true
-
+      hibernate:
+        format_sql: true
   data:
     redis:
       host: localhost
@@ -22,11 +18,14 @@ spring:
 server:
   port: 8080
 
-security:
-  jwt:
-    secret: change-me-32-bytes-minimum
-
 logging:
   level:
-    root: INFO
-    org.springframework.security: INFO
+    org.springframework: INFO
+
+tf25:
+  proxy:
+    # más adelante va a apuntar al servicio proxy de la cátedra
+    base-url: http://localhost:8080
+  sync:
+    # cada cuánto se sincronizan eventos automáticamente (ms)
+    fixed-delay-ms: 60000
