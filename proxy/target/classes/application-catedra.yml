@@ -1,0 +1,19 @@
+server:
+  port: 8081
+
+spring:
+  kafka:
+    bootstrap-servers: 192.168.194.250:9092
+    consumer:
+      group-id: tf25-proxy
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+tf25:
+  backend:
+    base-url: http://192.168.194.XXX:8080
+
+kafka:
+  topic:
+    eventos: NOMBRE_DEL_TOPIC_REAL

@@ -56,9 +56,7 @@ public class EventoService {
     public int sincronizarEventos() {
         try {
             EventoRemotoDto[] remotos = restClient.get()
-                    // TODO(issue-8): volver a usar el proxy real cuando exista
-                    // Usamos path relativo para respetar el baseUrl (mock en dev)
-                    .uri("/api/mock-eventos")
+                    .uri("/api/eventos")
                     .retrieve()
                     .body(EventoRemotoDto[].class);
 
@@ -90,7 +88,43 @@ public class EventoService {
             return count;
 
         } catch (Exception ex) {
-            log.warn("No se pudo sincronizar eventos desde el mock", ex);
+            log.warn("No se pudo sincronizar eventos desde el proxy", ex);
+            return 0;
+        }
+    }
+
+    /**
+     * Sincroniza un evento individual desde el proxy por su externalId.
+     * Retorna 1 si se procesó el evento, 0 si no se encontró o hubo error.
+     */
+    public int sincronizarEventoPorExternalId(String externalId) {
+        try {
+            EventoRemotoDto dto = restClient.get()
+                    .uri("/api/eventos/{externalId}", externalId)
+                    .retrieve()
+                    .body(EventoRemotoDto.class);
+
+            if (dto == null) {
+                log.warn("Sincronización individual: no se encontró evento con externalId={}", externalId);
+                return 0;
+            }
+
+            Evento evento = eventoRepository.findByExternalId(externalId)
+                    .orElseGet(Evento::new);
+
+            evento.setExternalId(externalId);
+            evento.setNombre(dto.getNombre());
+            evento.setDescripcion(dto.getDescripcion());
+            evento.setFechaHora(dto.getFechaHora());
+            evento.setCupo(dto.getCupo() != null ? dto.getCupo() : 0);
+            evento.setPrecio(dto.getPrecio());
+
+            eventoRepository.save(evento);
+
+            log.info("Sincronización individual completada para externalId={}", externalId);
+            return 1;
+        } catch (Exception ex) {
+            log.warn("Error sincronizando evento por externalId={}", externalId, ex);
             return 0;
         }
     }

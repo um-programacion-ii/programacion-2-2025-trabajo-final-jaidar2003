@@ -1,0 +1,5 @@
+org/example/tf25/proxy/ProxyApplication.class
+org/example/tf25/proxy/config/BackendClientConfig.class
+org/example/tf25/proxy/service/EventosKafkaListener.class
+org/example/tf25/proxy/web/EventoProxyController.class
+org/example/tf25/proxy/web/EventoProxyController$EventoRemotoDto.class
