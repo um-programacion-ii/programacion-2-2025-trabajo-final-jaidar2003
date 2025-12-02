@@ -3,12 +3,14 @@ package org.example.tf25.service;
 import lombok.extern.slf4j.Slf4j;
 import org.example.tf25.domain.Evento;
 import org.example.tf25.repository.EventoRepository;
+import org.example.tf25.service.dto.AsientoDto;
 import org.example.tf25.service.dto.EventoRemotoDto;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -127,5 +129,18 @@ public class EventoService {
             log.warn("Error sincronizando evento por externalId={}", externalId, ex);
             return 0;
         }
+    }
+
+    @Transactional(readOnly = true)
+    public List<AsientoDto> obtenerAsientos(String externalEventoId) {
+        AsientoDto[] asientos = restClient.get()
+                .uri("/api/asientos/{externalEventoId}", externalEventoId)
+                .retrieve()
+                .body(AsientoDto[].class);
+
+        if (asientos == null) {
+            return List.of();
+        }
+        return Arrays.asList(asientos);
     }
 }

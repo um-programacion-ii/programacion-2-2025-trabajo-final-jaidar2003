@@ -2,6 +2,7 @@ package org.example.tf25.web;
 
 import org.example.tf25.domain.Evento;
 import org.example.tf25.service.EventoService;
+import org.example.tf25.service.dto.AsientoDto;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -63,5 +64,13 @@ public class EventoController {
     public ResponseEntity<Void> syncEventos() {
         int count = eventoService.sincronizarEventos();
         return ResponseEntity.accepted().build();
+    }
+
+    @GetMapping("/{externalId}/asientos")
+    public ResponseEntity<List<AsientoDto>> obtenerAsientos(
+            @PathVariable("externalId") String externalEventoId
+    ) {
+        var asientos = eventoService.obtenerAsientos(externalEventoId);
+        return ResponseEntity.ok(asientos);
     }
 }
