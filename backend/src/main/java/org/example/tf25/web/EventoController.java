@@ -2,7 +2,10 @@ package org.example.tf25.web;
 
 import org.example.tf25.domain.Evento;
 import org.example.tf25.service.EventoService;
+import org.example.tf25.service.SessionService;
 import org.example.tf25.service.dto.AsientoDto;
+import org.example.tf25.service.dto.SessionState;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -15,9 +18,11 @@ import java.util.List;
 public class EventoController {
 
     private final EventoService eventoService;
+    private final SessionService sessionService;
 
-    public EventoController(EventoService eventoService) {
+    public EventoController(EventoService eventoService, SessionService sessionService) {
         this.eventoService = eventoService;
+        this.sessionService = sessionService;
     }
 
     @GetMapping
@@ -68,9 +73,25 @@ public class EventoController {
 
     @GetMapping("/{externalId}/asientos")
     public ResponseEntity<List<AsientoDto>> obtenerAsientos(
-            @PathVariable("externalId") String externalEventoId
+            @PathVariable("externalId") String externalEventoId,
+            @RequestHeader(value = "X-Session-Id", required = false) String sessionId
     ) {
+        // 1) Resolver sesión
+        SessionState sessionState = sessionService
+                .obtenerSesion(sessionId)
+                .orElseGet(() -> sessionService.crearNuevaSesionParaEvento(null, externalEventoId));
+
+        if (sessionState.getExternalEventoId() == null) {
+            sessionState.setExternalEventoId(externalEventoId);
+            sessionService.guardarSesion(sessionState);
+        }
+
+        // 2) Consultar asientos al proxy
         var asientos = eventoService.obtenerAsientos(externalEventoId);
-        return ResponseEntity.ok(asientos);
+
+        // 3) Devolver asientos + header con X-Session-Id
+        return ResponseEntity.ok()
+                .header("X-Session-Id", sessionState.getSessionId())
+                .body(asientos);
     }
 }

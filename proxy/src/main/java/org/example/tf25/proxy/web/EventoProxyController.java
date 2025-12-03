@@ -1,47 +1,53 @@
 package org.example.tf25.proxy.web;
 
+import org.example.tf25.proxy.service.dto.EventoRemotoDto;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.List;
+import org.springframework.web.client.RestClient;
 
 @RestController
+@RequestMapping("/api/eventos")
 public class EventoProxyController {
 
-    public record EventoRemotoDto(
-            Long id,
-            String nombre,
-            String descripcion,
-            LocalDateTime fechaHora,
-            Integer cupo,
-            BigDecimal precio
-    ) {}
+    private static final Logger log = LoggerFactory.getLogger(EventoProxyController.class);
 
-    @GetMapping("/api/eventos")
-    public List<EventoRemotoDto> listarTodos() {
-        // Dummy por ahora, para probar integración.
-        return List.of(
-                new EventoRemotoDto(1L, "Proxy Evento 1", "Demo 1",
-                        LocalDateTime.now().plusDays(1), 100, new BigDecimal("5000")),
-                new EventoRemotoDto(2L, "Proxy Evento 2", "Demo 2",
-                        LocalDateTime.now().plusDays(3), 200, new BigDecimal("8000"))
-        );
+    private final RestClient catedraRestClient;
+
+    public EventoProxyController(@Qualifier("catedraRestClient") RestClient catedraRestClient) {
+        this.catedraRestClient = catedraRestClient;
     }
 
-    @GetMapping("/api/eventos/{externalId}")
-    public EventoRemotoDto obtenerPorExternalId(@PathVariable String externalId) {
-        // Por ahora devolvemos uno dummy con el externalId.
-        // Más adelante se va a consultar al Servicio de la Cátedra / Redis.
-        return new EventoRemotoDto(
-                Long.valueOf(externalId),
-                "Proxy Evento " + externalId,
-                "Detalle dummy para externalId=" + externalId,
-                LocalDateTime.now().plusDays(2),
-                150,
-                new BigDecimal("6000")
-        );
+    @GetMapping
+    public ResponseEntity<?> listarEventos() {
+        log.info("Proxy: pidiendo eventos a la cátedra...");
+        EventoRemotoDto[] eventos = catedraRestClient.get()
+                .uri("/api/eventos")
+                .retrieve()
+                .body(EventoRemotoDto[].class);
+
+        if (eventos == null) {
+            return ResponseEntity.ok(new EventoRemotoDto[0]);
+        }
+        return ResponseEntity.ok(eventos);
+    }
+
+    @GetMapping("/{externalId}")
+    public ResponseEntity<?> obtenerEvento(@PathVariable String externalId) {
+        log.info("Proxy: pidiendo evento {} a la cátedra...", externalId);
+        EventoRemotoDto evento = catedraRestClient.get()
+                .uri("/api/eventos/{id}", externalId)
+                .retrieve()
+                .body(EventoRemotoDto.class);
+
+        if (evento == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(evento);
     }
 }

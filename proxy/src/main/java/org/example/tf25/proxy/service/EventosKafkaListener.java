@@ -2,6 +2,7 @@ package org.example.tf25.proxy.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -13,7 +14,7 @@ public class EventosKafkaListener {
 
     private final RestClient backendRestClient;
 
-    public EventosKafkaListener(RestClient backendRestClient) {
+    public EventosKafkaListener(@Qualifier("backendRestClient") RestClient backendRestClient) {
         this.backendRestClient = backendRestClient;
     }
 
