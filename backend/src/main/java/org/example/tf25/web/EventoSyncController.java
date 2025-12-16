@@ -24,7 +24,7 @@ public class EventoSyncController {
      * donde {externalId} es el ID externo del evento.
      */
     @PostMapping("/sync/{externalId}")
-    public ResponseEntity<Void> syncEventoDesdeProxy(@PathVariable String externalId) {
+    public ResponseEntity<Void> syncEventoDesdeProxy(@PathVariable("externalId") String externalId) {
         log.info("Recibida notificación de cambio de evento desde Proxy para externalId={}", externalId);
         int procesados = eventoService.sincronizarEventoPorExternalId(externalId);
 

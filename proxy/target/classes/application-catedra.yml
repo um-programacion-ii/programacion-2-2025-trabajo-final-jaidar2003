@@ -12,7 +12,15 @@ tf25:
   backend:
     base-url: http://localhost:8080
   catedra:
-    base-url: http://192.168.194.250:8080
+    base-url: ${TF25_CATEDRA_BASE_URL:http://192.168.194.250:8080}
+    # Si se provee un token estático, el proxy lo usará y NO intentará login
+    token: ${TF25_CATEDRA_BEARER_TOKEN:}
+    # Alternativa: ruta a archivo con el JWT (una sola línea). Si existe y tiene contenido, NO intentará login
+    token-file: ${TF25_CATEDRA_BEARER_TOKEN_FILE:../token.txt}
+    auth:
+      login-path: ${TF25_CATEDRA_AUTH_LOGIN_PATH:/api/authenticate}
+      username: ${TF25_CATEDRA_AUTH_USERNAME:}
+      password: ${TF25_CATEDRA_AUTH_PASSWORD:}
 
 kafka:
   topic:
