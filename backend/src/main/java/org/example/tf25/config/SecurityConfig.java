@@ -11,7 +11,7 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
-@Profile("!test")
+@Profile("!test & !catedra")
 @EnableMethodSecurity
 public class SecurityConfig {
 

@@ -1,5 +1,6 @@
 package org.example.tf25.proxy.config;
 
+import org.example.tf25.proxy.service.CatedraAuthService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,8 +12,30 @@ public class CatedraClientConfig {
     @Bean
     public RestClient catedraRestClient(
             RestClient.Builder builder,
-            @Value("${tf25.catedra.base-url}") String baseUrl
+            @Value("${tf25.catedra.base-url}") String baseUrl,
+            CatedraAuthService authService,
+            CatedraProperties catedraProperties
     ) {
-        return builder.baseUrl(baseUrl).build();
+        return builder
+                .baseUrl(baseUrl)
+                .requestInterceptor((request, body, execution) -> {
+                    // Evitar añadir Authorization al endpoint de login para no generar recursión
+                    String path = request.getURI().getPath();
+                    String loginPath = catedraProperties.getAuth() != null ? catedraProperties.getAuth().getLoginPath() : null;
+                    boolean isLoginCall = (loginPath != null && !loginPath.isBlank()) && path != null && path.startsWith(loginPath);
+
+                    if (!isLoginCall) {
+                        try {
+                            String token = authService.getBearerToken();
+                            if (token != null && !token.isBlank()) {
+                                request.getHeaders().setBearerAuth(token);
+                            }
+                        } catch (Exception ignored) {
+                            // Si no hay token configurado aún, dejamos pasar; el servicio puede manejar el 401
+                        }
+                    }
+                    return execution.execute(request, body);
+                })
+                .build();
     }
 }

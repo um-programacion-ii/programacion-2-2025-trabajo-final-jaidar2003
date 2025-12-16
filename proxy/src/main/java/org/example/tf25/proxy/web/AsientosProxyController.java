@@ -23,10 +23,16 @@ public class AsientosProxyController {
 
     @GetMapping("/{externalEventoId}")
     public ResponseEntity<List<AsientoRemotoDto>> listarAsientos(
-            @PathVariable String externalEventoId
+            @PathVariable("externalEventoId") String externalEventoId
     ) {
         log.info("Proxy: consultando asientos para evento {}", externalEventoId);
-        List<AsientoRemotoDto> asientos = asientosProxyService.obtenerAsientos(externalEventoId);
-        return ResponseEntity.ok(asientos);
+        try {
+            List<AsientoRemotoDto> asientos = asientosProxyService.obtenerAsientos(externalEventoId);
+            return ResponseEntity.ok(asientos);
+        } catch (Exception ex) {
+            log.warn("Proxy: error consultando asientos para evento {}: {}", externalEventoId, ex.toString());
+            // No propagamos 500; devolvemos lista vacía para que el backend maneje el flujo
+            return ResponseEntity.ok(List.of());
+        }
     }
 }

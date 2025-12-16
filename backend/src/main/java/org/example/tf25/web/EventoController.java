@@ -5,7 +5,9 @@ import org.example.tf25.service.EventoService;
 import org.example.tf25.service.SessionService;
 import org.example.tf25.service.dto.AsientoDto;
 import org.example.tf25.service.dto.SessionState;
+import org.example.tf25.service.dto.RespuestaBloqueoAsientosDto;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -93,5 +95,77 @@ public class EventoController {
         return ResponseEntity.ok()
                 .header("X-Session-Id", sessionState.getSessionId())
                 .body(asientos);
+    }
+
+    @PostMapping("/{externalId}/bloqueos")
+    public ResponseEntity<?> bloquearAsientos(
+            @PathVariable("externalId") String externalEventoId,
+            @RequestHeader(value = "X-Session-Id", required = false) String sessionId,
+            @RequestBody com.fasterxml.jackson.databind.JsonNode body
+    ) {
+        // 0) Normalizar cuerpo a List<String> asientosIds admitiendo dos formatos
+        //    - ["r2c3","r2c4"]
+        //    - { "asientosIds": ["r2c3","r2c4"] }
+        java.util.List<String> asientosIds = extraerAsientosIds(body);
+        if (asientosIds == null || asientosIds.isEmpty()) {
+            return ResponseEntity.badRequest().body(
+                    java.util.Map.of(
+                            "error", "BadRequest",
+                            "mensaje", "Se requiere al menos un asiento en el body. Formato aceptado: [\"r2c3\",...] o {\"asientosIds\":[\"r2c3\",...]}"
+                    )
+            );
+        }
+
+        // 1) Resolver sesión (igual que en /asientos)
+        SessionState sessionState = sessionService
+                .obtenerSesion(sessionId)
+                .orElseGet(() -> sessionService.crearNuevaSesionParaEvento(null, externalEventoId));
+
+        if (sessionState.getExternalEventoId() == null) {
+            sessionState.setExternalEventoId(externalEventoId);
+            sessionService.guardarSesion(sessionState);
+        } else if (!externalEventoId.equals(sessionState.getExternalEventoId())) {
+            // Podés devolver error si la sesión apunta a otro evento
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
+
+        // 2) Llamar al servicio para bloquear
+        RespuestaBloqueoAsientosDto respuesta = eventoService.bloquearAsientosParaSesion(
+                sessionState,
+                asientosIds
+        );
+
+        // TODO más adelante:
+        // - actualizar sessionState.setAsientosSeleccionados(...) con los que queden BLOQUEADO
+        // - guardar la sesión
+
+        return ResponseEntity.ok()
+                .header("X-Session-Id", sessionState.getSessionId())
+                .body(respuesta);
+    }
+
+    /**
+     * Extrae los asientosIds desde un body que puede ser un array plano o un objeto con campo "asientosIds".
+     */
+    private java.util.List<String> extraerAsientosIds(com.fasterxml.jackson.databind.JsonNode body) {
+        if (body == null || body.isNull()) {
+            return java.util.List.of();
+        }
+        com.fasterxml.jackson.databind.node.ArrayNode arrayNode = null;
+        if (body.isArray()) {
+            arrayNode = (com.fasterxml.jackson.databind.node.ArrayNode) body;
+        } else if (body.has("asientosIds") && body.get("asientosIds").isArray()) {
+            arrayNode = (com.fasterxml.jackson.databind.node.ArrayNode) body.get("asientosIds");
+        }
+        if (arrayNode == null) {
+            return java.util.List.of();
+        }
+        java.util.List<String> result = new java.util.ArrayList<>();
+        arrayNode.forEach(node -> {
+            if (node.isTextual()) {
+                result.add(node.asText());
+            }
+        });
+        return result;
     }
 }

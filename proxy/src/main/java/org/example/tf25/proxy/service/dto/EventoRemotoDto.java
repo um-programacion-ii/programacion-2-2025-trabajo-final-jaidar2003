@@ -1,27 +1,50 @@
 package org.example.tf25.proxy.service.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public class EventoRemotoDto {
 
     private Long id;
+
+    // La cátedra envía "titulo"; lo mapeamos a nuestro campo "nombre"
+    @JsonProperty("titulo")
     private String nombre;
+
+    // La cátedra envía "resumen" en el listado resumido
+    @JsonProperty("resumen")
+    private String resumen;
+
     private String descripcion;
-    private LocalDateTime fechaHora;
+
+    // La cátedra envía "fecha" con zona (ej: 2026-01-10T11:00:00Z); usamos Instant
+    @JsonProperty("fecha")
+    private Instant fechaHora;
+
+    // No siempre lo envía la cátedra en los endpoints resumidos
     private Integer cupo;
+
+    // La cátedra envía "precioEntrada"; lo mapeamos a nuestro campo "precio"
+    @JsonProperty("precioEntrada")
     private BigDecimal precio;
+
+    // La cátedra envía un objeto "eventoTipo" con nombre y descripcion
+    @JsonProperty("eventoTipo")
+    private EventoTipoRemotoDto eventoTipo;
 
     public EventoRemotoDto() {
     }
 
-    public EventoRemotoDto(Long id, String nombre, String descripcion, LocalDateTime fechaHora, Integer cupo, BigDecimal precio) {
+    public EventoRemotoDto(Long id, String nombre, String resumen, String descripcion, Instant fechaHora, Integer cupo, BigDecimal precio, EventoTipoRemotoDto eventoTipo) {
         this.id = id;
         this.nombre = nombre;
+        this.resumen = resumen;
         this.descripcion = descripcion;
         this.fechaHora = fechaHora;
         this.cupo = cupo;
         this.precio = precio;
+        this.eventoTipo = eventoTipo;
     }
 
     public Long getId() {
@@ -40,6 +63,14 @@ public class EventoRemotoDto {
         this.nombre = nombre;
     }
 
+    public String getResumen() {
+        return resumen;
+    }
+
+    public void setResumen(String resumen) {
+        this.resumen = resumen;
+    }
+
     public String getDescripcion() {
         return descripcion;
     }
@@ -48,11 +79,11 @@ public class EventoRemotoDto {
         this.descripcion = descripcion;
     }
 
-    public LocalDateTime getFechaHora() {
+    public Instant getFechaHora() {
         return fechaHora;
     }
 
-    public void setFechaHora(LocalDateTime fechaHora) {
+    public void setFechaHora(Instant fechaHora) {
         this.fechaHora = fechaHora;
     }
 
@@ -70,5 +101,13 @@ public class EventoRemotoDto {
 
     public void setPrecio(BigDecimal precio) {
         this.precio = precio;
+    }
+
+    public EventoTipoRemotoDto getEventoTipo() {
+        return eventoTipo;
+    }
+
+    public void setEventoTipo(EventoTipoRemotoDto eventoTipo) {
+        this.eventoTipo = eventoTipo;
     }
 }

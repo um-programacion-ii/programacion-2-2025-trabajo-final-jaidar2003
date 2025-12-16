@@ -25,29 +25,39 @@ public class EventoProxyController {
 
     @GetMapping
     public ResponseEntity<?> listarEventos() {
-        log.info("Proxy: pidiendo eventos a la cátedra...");
-        EventoRemotoDto[] eventos = catedraRestClient.get()
-                .uri("/api/eventos")
-                .retrieve()
-                .body(EventoRemotoDto[].class);
+        log.info("Proxy: pidiendo eventos resumidos a la cátedra...");
+        try {
+            EventoRemotoDto[] eventos = catedraRestClient.get()
+                    .uri("/api/endpoints/v1/eventos-resumidos")
+                    .retrieve()
+                    .body(EventoRemotoDto[].class);
 
-        if (eventos == null) {
+            if (eventos == null) {
+                return ResponseEntity.ok(new EventoRemotoDto[0]);
+            }
+            return ResponseEntity.ok(eventos);
+        } catch (Exception ex) {
+            log.warn("Proxy: error consultando eventos en cátedra: {}", ex.toString());
             return ResponseEntity.ok(new EventoRemotoDto[0]);
         }
-        return ResponseEntity.ok(eventos);
     }
 
     @GetMapping("/{externalId}")
-    public ResponseEntity<?> obtenerEvento(@PathVariable String externalId) {
+    public ResponseEntity<?> obtenerEvento(@PathVariable("externalId") String externalId) {
         log.info("Proxy: pidiendo evento {} a la cátedra...", externalId);
-        EventoRemotoDto evento = catedraRestClient.get()
-                .uri("/api/eventos/{id}", externalId)
-                .retrieve()
-                .body(EventoRemotoDto.class);
+        try {
+            EventoRemotoDto evento = catedraRestClient.get()
+                    .uri("/api/endpoints/v1/evento/{id}", externalId)
+                    .retrieve()
+                    .body(EventoRemotoDto.class);
 
-        if (evento == null) {
+            if (evento == null) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok(evento);
+        } catch (Exception ex) {
+            log.warn("Proxy: error consultando evento {} en cátedra: {}", externalId, ex.toString());
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(evento);
     }
 }

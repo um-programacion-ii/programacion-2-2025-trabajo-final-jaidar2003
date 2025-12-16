@@ -4,12 +4,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.tf25.domain.Evento;
 import org.example.tf25.repository.EventoRepository;
 import org.example.tf25.service.dto.AsientoDto;
-import org.example.tf25.service.dto.EventoRemotoDto;
+import org.example.tf25.service.dto.PeticionBloqueoAsientosDto;
+import org.example.tf25.service.dto.RespuestaBloqueoAsientosDto;
+import org.example.tf25.service.dto.ResultadoBloqueoAsientoDto;
+import org.example.tf25.service.dto.SessionState;
+import org.example.tf25.proxy.dto.EventoProxyDto;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -57,10 +63,10 @@ public class EventoService {
      */
     public int sincronizarEventos() {
         try {
-            EventoRemotoDto[] remotos = restClient.get()
+            EventoProxyDto[] remotos = restClient.get()
                     .uri("/api/eventos")
                     .retrieve()
-                    .body(EventoRemotoDto[].class);
+                    .body(EventoProxyDto[].class);
 
             if (remotos == null || remotos.length == 0) {
                 log.info("Sincronización de eventos: no se recibieron eventos remotos");
@@ -68,7 +74,7 @@ public class EventoService {
             }
 
             int count = 0;
-            for (EventoRemotoDto dto : remotos) {
+            for (EventoProxyDto dto : remotos) {
                 String externalId = dto.getId() != null ? dto.getId().toString() : null;
 
                 Evento evento = externalId != null
@@ -77,8 +83,14 @@ public class EventoService {
 
                 evento.setExternalId(externalId);
                 evento.setNombre(dto.getNombre());
-                evento.setDescripcion(dto.getDescripcion());
-                evento.setFechaHora(dto.getFechaHora());
+                evento.setDescripcion(dto.getDescripcion() != null ? dto.getDescripcion() : dto.getResumen());
+                if (dto.getFechaHora() != null) {
+                    LocalDateTime fechaLocal = LocalDateTime.ofInstant(
+                            dto.getFechaHora(),
+                            ZoneId.of("America/Argentina/Mendoza")
+                    );
+                    evento.setFechaHora(fechaLocal);
+                }
                 evento.setCupo(dto.getCupo() != null ? dto.getCupo() : 0);
                 evento.setPrecio(dto.getPrecio());
 
@@ -101,10 +113,10 @@ public class EventoService {
      */
     public int sincronizarEventoPorExternalId(String externalId) {
         try {
-            EventoRemotoDto dto = restClient.get()
+            EventoProxyDto dto = restClient.get()
                     .uri("/api/eventos/{externalId}", externalId)
                     .retrieve()
-                    .body(EventoRemotoDto.class);
+                    .body(EventoProxyDto.class);
 
             if (dto == null) {
                 log.warn("Sincronización individual: no se encontró evento con externalId={}", externalId);
@@ -116,8 +128,14 @@ public class EventoService {
 
             evento.setExternalId(externalId);
             evento.setNombre(dto.getNombre());
-            evento.setDescripcion(dto.getDescripcion());
-            evento.setFechaHora(dto.getFechaHora());
+            evento.setDescripcion(dto.getDescripcion() != null ? dto.getDescripcion() : dto.getResumen());
+            if (dto.getFechaHora() != null) {
+                LocalDateTime fechaLocal = LocalDateTime.ofInstant(
+                        dto.getFechaHora(),
+                        ZoneId.of("America/Argentina/Mendoza")
+                );
+                evento.setFechaHora(fechaLocal);
+            }
             evento.setCupo(dto.getCupo() != null ? dto.getCupo() : 0);
             evento.setPrecio(dto.getPrecio());
 
@@ -133,14 +151,72 @@ public class EventoService {
 
     @Transactional(readOnly = true)
     public List<AsientoDto> obtenerAsientos(String externalEventoId) {
-        AsientoDto[] asientos = restClient.get()
-                .uri("/api/asientos/{externalEventoId}", externalEventoId)
-                .retrieve()
-                .body(AsientoDto[].class);
+        try {
+            AsientoDto[] asientos = restClient.get()
+                    .uri("/api/asientos/{externalEventoId}", externalEventoId)
+                    .retrieve()
+                    .body(AsientoDto[].class);
 
-        if (asientos == null) {
+            if (asientos == null) {
+                return List.of();
+            }
+            return Arrays.asList(asientos);
+        } catch (Exception ex) {
+            log.warn("No se pudieron obtener asientos desde el Proxy para externalId={}: {}", externalEventoId, ex.toString());
             return List.of();
         }
-        return Arrays.asList(asientos);
     }
+
+    public RespuestaBloqueoAsientosDto bloquearAsientosParaSesion(
+            SessionState sessionState,
+            List<String> asientosIds
+    ) {
+        // Construir petición hacia el proxy
+        PeticionBloqueoAsientosDto peticion = new PeticionBloqueoAsientosDto(
+                sessionState.getExternalEventoId(),
+                sessionState.getSessionId(),
+                asientosIds
+        );
+
+        try {
+            // Llamar al proxy
+            RespuestaBloqueoAsientosDto respuesta = restClient.post()
+                    .uri("/api/asientos/bloqueos")
+                    .body(peticion)
+                    .retrieve()
+                    .body(RespuestaBloqueoAsientosDto.class);
+
+            if (respuesta == null) {
+                // Si por algún motivo no hay respuesta, devolvemos todo como fallo genérico
+                return new RespuestaBloqueoAsientosDto(
+                        sessionState.getExternalEventoId(),
+                        sessionState.getSessionId(),
+                        asientosIds.stream()
+                                .map(id -> new ResultadoBloqueoAsientoDto(
+                                        id,
+                                        "ERROR",
+                                        "No se obtuvo respuesta del Proxy"
+                                ))
+                                .toList()
+                );
+            }
+
+            return respuesta;
+        } catch (Exception ex) {
+            log.warn("No se pudo solicitar bloqueo de asientos al Proxy para externalId={} (session={}): {}",
+                    sessionState.getExternalEventoId(), sessionState.getSessionId(), ex.toString());
+            return new RespuestaBloqueoAsientosDto(
+                    sessionState.getExternalEventoId(),
+                    sessionState.getSessionId(),
+                    asientosIds.stream()
+                            .map(id -> new ResultadoBloqueoAsientoDto(
+                                    id,
+                                    "ERROR",
+                                    "Error comunicándose con el Proxy: " + ex.getClass().getSimpleName()
+                            ))
+                            .toList()
+            );
+        }
+    }
+
 }
