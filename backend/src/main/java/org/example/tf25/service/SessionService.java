@@ -3,30 +3,20 @@ package org.example.tf25.service;
 import lombok.extern.slf4j.Slf4j;
 import org.example.tf25.service.dto.PasoFlujoCompra;
 import org.example.tf25.service.dto.SessionState;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
 public class SessionService {
 
-    private static final String SESSION_KEY_PREFIX = "tf25:sessions:";
-    private static final Duration SESSION_TTL = Duration.ofMinutes(30);
-
-    private final RedisTemplate<String, SessionState> sessionRedisTemplate;
-
-    public SessionService(RedisTemplate<String, SessionState> sessionRedisTemplate) {
-        this.sessionRedisTemplate = sessionRedisTemplate;
-    }
-
-    private String buildKey(String sessionId) {
-        return SESSION_KEY_PREFIX + sessionId;
-    }
+    // Simulación de almacenamiento en memoria al no usar Redis en el backend
+    private final Map<String, SessionState> sessions = new ConcurrentHashMap<>();
 
     public SessionState crearNuevaSesionParaEvento(String userId, String externalEventoId) {
         String sessionId = UUID.randomUUID().toString();
@@ -38,8 +28,8 @@ public class SessionService {
                 PasoFlujoCompra.MAPA_ASIENTOS // o SELECCION_EVENTO según cómo prefieras
         );
 
-        sessionRedisTemplate.opsForValue().set(buildKey(sessionId), state, SESSION_TTL);
-        log.info("Creada nueva sesión {} para evento {}", sessionId, externalEventoId);
+        sessions.put(sessionId, state);
+        log.info("Creada nueva sesión {} (en memoria) para evento {}", sessionId, externalEventoId);
         return state;
     }
 
@@ -47,24 +37,19 @@ public class SessionService {
         if (sessionId == null || sessionId.isBlank()) {
             return Optional.empty();
         }
-        SessionState state = sessionRedisTemplate.opsForValue().get(buildKey(sessionId));
-        if (state != null) {
-            // Renovamos TTL (sesión deslizante)
-            sessionRedisTemplate.expire(buildKey(sessionId), SESSION_TTL);
-        }
-        return Optional.ofNullable(state);
+        return Optional.ofNullable(sessions.get(sessionId));
     }
 
     public SessionState guardarSesion(SessionState state) {
         if (state.getSessionId() == null) {
             throw new IllegalArgumentException("SessionId no puede ser null al guardar sesión");
         }
-        sessionRedisTemplate.opsForValue().set(buildKey(state.getSessionId()), state, SESSION_TTL);
+        sessions.put(state.getSessionId(), state);
         return state;
     }
 
     public void eliminarSesion(String sessionId) {
         if (sessionId == null) return;
-        sessionRedisTemplate.delete(buildKey(sessionId));
+        sessions.remove(sessionId);
     }
 }

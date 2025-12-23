@@ -26,35 +26,60 @@ services:
       timeout: 3s
       retries: 10
 
+  kafka-test:
+    image: apache/kafka-native:latest
+    container_name: tf25-kafka-test
+    ports:
+      - "9093:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka-test:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka-test:9093"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+
   proxy:
     image: eclipse-temurin:21-jre
     container_name: tf25-proxy
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     ports:
       - "8081:8081"
+    extra_hosts:
+      - "kafka:192.168.194.250"
     environment:
       SPRING_PROFILES_ACTIVE: catedra
+      # Kafka de la cátedra
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: 192.168.194.250:9092
+      SPRING_KAFKA_CONSUMER_GROUP_ID: juanma-tf25
       # El proxy necesita hablar con el backend dentro de la red del compose
       TF25_BACKEND_BASE_URL: http://backend:8080
-      # Redis interno del compose:
+      # Redis interno del compose (usado para locks locales del proxy):
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+      # Redis de la cátedra (fuente de asientos ocupados/bloqueados):
+      TF25_CATEDRA_REDIS_HOST: ${TF25_CATEDRA_REDIS_HOST:-192.168.194.250}
+      TF25_CATEDRA_REDIS_PORT: ${TF25_CATEDRA_REDIS_PORT:-6379}
       # Desactivar el health de Kafka (si la cátedra no es alcanzable ahora):
       MANAGEMENT_HEALTH_KAFKA_ENABLED: "false"
       # (Opcional) ver detalles del health en /actuator/health
       MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS: always
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: "health,info,mappings"
+      MANAGEMENT_ENDPOINT_MAPPINGS_ENABLED: "true"
       # Configuración de la cátedra
-      TF25_CATEDRA_BASE_URL: ${TF25_CATEDRA_BASE_URL}
+      TF25_CATEDRA_BASE_URL: ${TF25_CATEDRA_BASE_URL:-}
       # JWT por variable de entorno (opcional). Si no se define, se usará login automático con user/pass.
-      TF25_CATEDRA_BEARER_TOKEN: ${TF25_CATEDRA_BEARER_TOKEN}
+      TF25_CATEDRA_BEARER_TOKEN: ${TF25_CATEDRA_BEARER_TOKEN:-}
       # Login automático (recomendado): configurar usuario/clave en el entorno
-      TF25_CATEDRA_AUTH_LOGIN_PATH: ${TF25_CATEDRA_AUTH_LOGIN_PATH}
-      TF25_CATEDRA_AUTH_USERNAME: ${TF25_CATEDRA_AUTH_USERNAME}
-      TF25_CATEDRA_AUTH_PASSWORD: ${TF25_CATEDRA_AUTH_PASSWORD}
+      TF25_CATEDRA_AUTH_LOGIN_PATH: ${TF25_CATEDRA_AUTH_LOGIN_PATH:-}
+      TF25_CATEDRA_AUTH_USERNAME: ${TF25_CATEDRA_AUTH_USERNAME:-}
+      TF25_CATEDRA_AUTH_PASSWORD: ${TF25_CATEDRA_AUTH_PASSWORD:-}
     volumes:
       - ./proxy/target/tf25-proxy-0.0.1-SNAPSHOT.jar:/app/app.jar:ro
     command: ["java", "-jar", "/app/app.jar"]
@@ -65,24 +90,24 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
       proxy:
         condition: service_started
     ports:
       - "8080:8080"
+    extra_hosts:
+      - "kafka:192.168.194.250"
     environment:
-        # Desactivar el auto-start de los listeners de Kafka:
-      SPRING_KAFKA_LISTENER_AUTO_STARTUP: "false"
       SPRING_PROFILES_ACTIVE: catedra
-      # Dentro del compose, el host de Postgres es el nombre del servicio "postgres"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tf25
       SPRING_DATASOURCE_USERNAME: tf25
       SPRING_DATASOURCE_PASSWORD: tf25
-      # Redis dentro del compose se llama "redis"
-      SPRING_DATA_REDIS_HOST: redis
-      # El backend debe hablar con el proxy por el nombre de servicio "proxy"
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:-192.168.194.250:9092}
+      TF25_KAFKA_TOPIC_VENTAS: ventas-confirmadas
+      TF25_VENTA_EXIGIR_BLOQUEOS: "true"
       TF25_PROXY_BASE_URL: http://proxy:8081
+      MANAGEMENT_HEALTH_KAFKA_ENABLED: "false"
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: "health,info,mappings"
+      MANAGEMENT_ENDPOINT_MAPPINGS_ENABLED: "true"
     volumes:
       - ./backend/target/tf25-0.0.1-SNAPSHOT.jar:/app/app.jar:ro
     command: ["java", "-jar", "/app/app.jar"]

@@ -13,6 +13,9 @@ spring:
 tf25:
   backend:
     base-url: http://localhost:8080
+  proxy:
+    dev:
+      force-success: true
 
 kafka:
   topic:

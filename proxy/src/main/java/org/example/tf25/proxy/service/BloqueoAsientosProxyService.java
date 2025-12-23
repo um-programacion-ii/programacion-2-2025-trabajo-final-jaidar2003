@@ -105,6 +105,7 @@ public class BloqueoAsientosProxyService {
         try {
             var respuestaCatedra = catedraRestClient.post()
                     .uri("/api/endpoints/v1/bloquear-asientos")
+                    .header("X-Session-Id", sessionId)
                     .body(body)
                     .retrieve()
                     .body(org.example.tf25.proxy.dto.catedra.RespuestaBloqueoAsientosRemotaDto.class);
@@ -117,18 +118,11 @@ public class BloqueoAsientosProxyService {
                 if (lista != null && !lista.isEmpty()) {
                     for (AsientoBloqueadoRemoto a : lista) {
                         String id = "r" + a.fila() + "c" + a.columna();
-                        String estadoUpstream = a.estado();
-                        String estado;
-                        if (!resultadoOk && estadoUpstream != null && (
-                                estadoUpstream.equalsIgnoreCase("BLOQUEADO") ||
-                                estadoUpstream.equalsIgnoreCase("OCUPADO") ||
-                                estadoUpstream.equalsIgnoreCase("CONFLICTO")
-                        )) {
-                            estado = "CONFLICTO";
-                        } else {
-                            estado = mapEstadoCatedra(estadoUpstream);
-                        }
-                        String mensaje = (!resultadoOk && "CONFLICTO".equals(estado) && descripcion != null && !descripcion.isBlank()) ? descripcion : null;
+                        String estadoUpstreamRaw = a.estado();
+                        String estadoUpstream = estadoUpstreamRaw != null ? estadoUpstreamRaw.trim() : null;
+                        String estado = mapEstadoCatedraRobusto(estadoUpstream);
+                        boolean esProblema = "CONFLICTO".equals(estado) || "INVALIDO".equals(estado) || "DESCONOCIDO".equals(estado);
+                        String mensaje = (!resultadoOk && esProblema && descripcion != null && !descripcion.isBlank()) ? descripcion : null;
                         resultadosFinales.add(new ResultadoBloqueoAsientoRemotoDto(id, estado, mensaje));
                         if ("OK".equals(estado)) {
                             lockService.lockSeat(externalEventoId, sessionId, id);
@@ -157,6 +151,7 @@ public class BloqueoAsientosProxyService {
                     authService.refreshToken();
                     var respuestaCatedra = catedraRestClient.post()
                             .uri("/api/endpoints/v1/bloquear-asientos")
+                            .header("X-Session-Id", sessionId)
                             .body(body)
                             .retrieve()
                             .body(org.example.tf25.proxy.dto.catedra.RespuestaBloqueoAsientosRemotaDto.class);
@@ -169,18 +164,11 @@ public class BloqueoAsientosProxyService {
                         if (lista != null && !lista.isEmpty()) {
                             for (AsientoBloqueadoRemoto a : lista) {
                                 String id = "r" + a.fila() + "c" + a.columna();
-                                String estadoUpstream = a.estado();
-                                String estado;
-                                if (!resultadoOk && estadoUpstream != null && (
-                                        estadoUpstream.equalsIgnoreCase("BLOQUEADO") ||
-                                        estadoUpstream.equalsIgnoreCase("OCUPADO") ||
-                                        estadoUpstream.equalsIgnoreCase("CONFLICTO")
-                                )) {
-                                    estado = "CONFLICTO";
-                                } else {
-                                    estado = mapEstadoCatedra(estadoUpstream);
-                                }
-                                String mensaje = (!resultadoOk && "CONFLICTO".equals(estado) && descripcion != null && !descripcion.isBlank()) ? descripcion : null;
+                                String estadoUpstreamRaw = a.estado();
+                                String estadoUpstream = estadoUpstreamRaw != null ? estadoUpstreamRaw.trim() : null;
+                                String estado = mapEstadoCatedraRobusto(estadoUpstream);
+                                boolean esProblema = "CONFLICTO".equals(estado) || "INVALIDO".equals(estado) || "DESCONOCIDO".equals(estado);
+                                String mensaje = (!resultadoOk && esProblema && descripcion != null && !descripcion.isBlank()) ? descripcion : null;
                                 resultadosFinales.add(new ResultadoBloqueoAsientoRemotoDto(id, estado, mensaje));
                                 if ("OK".equals(estado)) {
                                     lockService.lockSeat(externalEventoId, sessionId, id);
@@ -218,13 +206,27 @@ public class BloqueoAsientosProxyService {
         }
     }
 
+    private static String norm(String s) {
+        return s == null ? "" : s.trim().toUpperCase();
+    }
+
+    private static String mapEstadoCatedraRobusto(String estadoUpstream) {
+        String e = norm(estadoUpstream);
+
+        // Confirmados por evidencia real
+        if (e.contains("OCUP")) return "CONFLICTO";  // Ocupado
+        if (e.contains("NOVAL")) return "INVALIDO";  // NoValido
+
+        // Éxitos (cuando aparezcan)
+        if (e.contains("BLOQ")) return "OK";         // Bloqueado
+        if (e.contains("RESERV")) return "OK";       // Reservado
+        if (e.equals("OK")) return "OK";
+
+        return "DESCONOCIDO";
+    }
+
     private String mapEstadoCatedra(String estadoUpstream) {
-        if (estadoUpstream == null) return "ERROR";
-        return switch (estadoUpstream.toUpperCase(Locale.ROOT)) {
-            case "OK", "BLOQUEADO" -> "OK";
-            case "CONFLICTO", "OCUPADO", "BLOQUEADO_OTRO" -> "CONFLICTO";
-            default -> "ERROR";
-        };
+        return mapEstadoCatedraRobusto(estadoUpstream);
     }
 
     private java.util.Optional<AsientoPosicionRemota> parseAsientoId(String id) {

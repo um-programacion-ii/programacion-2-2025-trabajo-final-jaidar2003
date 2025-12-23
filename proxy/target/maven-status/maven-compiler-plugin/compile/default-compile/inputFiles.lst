@@ -2,6 +2,8 @@
 /Users/juanmaaidar/IdeaProjects/programacion-2-2025-trabajo-final-jaidar2003/proxy/src/main/java/org/example/tf25/proxy/config/BackendClientConfig.java
 /Users/juanmaaidar/IdeaProjects/programacion-2-2025-trabajo-final-jaidar2003/proxy/src/main/java/org/example/tf25/proxy/config/CatedraClientConfig.java
 /Users/juanmaaidar/IdeaProjects/programacion-2-2025-trabajo-final-jaidar2003/proxy/src/main/java/org/example/tf25/proxy/config/CatedraProperties.java
+/Users/juanmaaidar/IdeaProjects/programacion-2-2025-trabajo-final-jaidar2003/proxy/src/main/java/org/example/tf25/proxy/config/CatedraRedisConfig.java
+/Users/juanmaaidar/IdeaProjects/programacion-2-2025-trabajo-final-jaidar2003/proxy/src/main/java/org/example/tf25/proxy/config/CatedraRedisProperties.java
 /Users/juanmaaidar/IdeaProjects/programacion-2-2025-trabajo-final-jaidar2003/proxy/src/main/java/org/example/tf25/proxy/dto/AsientoRemotoDto.java
 /Users/juanmaaidar/IdeaProjects/programacion-2-2025-trabajo-final-jaidar2003/proxy/src/main/java/org/example/tf25/proxy/dto/PeticionBloqueoAsientosRemotaDto.java
 /Users/juanmaaidar/IdeaProjects/programacion-2-2025-trabajo-final-jaidar2003/proxy/src/main/java/org/example/tf25/proxy/dto/RespuestaBloqueoAsientosRemotaDto.java
@@ -9,6 +11,8 @@
 /Users/juanmaaidar/IdeaProjects/programacion-2-2025-trabajo-final-jaidar2003/proxy/src/main/java/org/example/tf25/proxy/dto/catedra/AsientoBloqueadoRemoto.java
 /Users/juanmaaidar/IdeaProjects/programacion-2-2025-trabajo-final-jaidar2003/proxy/src/main/java/org/example/tf25/proxy/dto/catedra/AsientoPosicionRemota.java
 /Users/juanmaaidar/IdeaProjects/programacion-2-2025-trabajo-final-jaidar2003/proxy/src/main/java/org/example/tf25/proxy/dto/catedra/CatedraLoginRequest.java
+/Users/juanmaaidar/IdeaProjects/programacion-2-2025-trabajo-final-jaidar2003/proxy/src/main/java/org/example/tf25/proxy/dto/catedra/CatedraRedisAsientoDto.java
+/Users/juanmaaidar/IdeaProjects/programacion-2-2025-trabajo-final-jaidar2003/proxy/src/main/java/org/example/tf25/proxy/dto/catedra/CatedraRedisEventoDto.java
 /Users/juanmaaidar/IdeaProjects/programacion-2-2025-trabajo-final-jaidar2003/proxy/src/main/java/org/example/tf25/proxy/dto/catedra/PeticionBloqueoAsientosRemotaDto.java
 /Users/juanmaaidar/IdeaProjects/programacion-2-2025-trabajo-final-jaidar2003/proxy/src/main/java/org/example/tf25/proxy/dto/catedra/RespuestaBloqueoAsientosRemotaDto.java
 /Users/juanmaaidar/IdeaProjects/programacion-2-2025-trabajo-final-jaidar2003/proxy/src/main/java/org/example/tf25/proxy/service/AsientosProxyService.java

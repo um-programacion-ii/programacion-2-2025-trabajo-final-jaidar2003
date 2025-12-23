@@ -23,6 +23,11 @@ logging:
     org.springframework: INFO
 
 tf25:
+  kafka:
+    topic:
+      ventas: ${TF25_KAFKA_TOPIC_VENTAS:ventas-confirmadas}
+  venta:
+    exigir-bloqueos: false
   proxy:
     # más adelante va a apuntar al servicio proxy de la cátedra
     base-url: http://localhost:8081

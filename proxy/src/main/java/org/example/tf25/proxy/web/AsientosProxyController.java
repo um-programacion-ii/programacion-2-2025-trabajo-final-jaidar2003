@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/asientos")
+@RequestMapping("/api/endpoints/v1")
 public class AsientosProxyController {
 
     private static final Logger log = LoggerFactory.getLogger(AsientosProxyController.class);
@@ -21,7 +21,7 @@ public class AsientosProxyController {
         this.asientosProxyService = asientosProxyService;
     }
 
-    @GetMapping("/{externalEventoId}")
+    @GetMapping("/asientos/{externalEventoId}")
     public ResponseEntity<List<AsientoRemotoDto>> listarAsientos(
             @PathVariable("externalEventoId") String externalEventoId
     ) {

@@ -4,7 +4,7 @@ import java.io.Serializable;
 import java.util.Set;
 
 /**
- * Estado de la sesión de compra almacenado en Redis.
+ * Estado de la sesión de compra (antes en Redis, ahora en memoria/DB).
  */
 public class SessionState implements Serializable {
 
@@ -13,6 +13,8 @@ public class SessionState implements Serializable {
     private String externalEventoId;
     private Set<String> asientosSeleccionados;
     private PasoFlujoCompra pasoActual;
+    // Indica si hubo al menos un BLOQUEADO real en el último intento de bloqueo
+    private boolean tuvoBloqueosExitosos;
 
     public SessionState() {
         // necesario para deserialización
@@ -70,5 +72,13 @@ public class SessionState implements Serializable {
 
     public void setPasoActual(PasoFlujoCompra pasoActual) {
         this.pasoActual = pasoActual;
+    }
+
+    public boolean isTuvoBloqueosExitosos() {
+        return tuvoBloqueosExitosos;
+    }
+
+    public void setTuvoBloqueosExitosos(boolean tuvoBloqueosExitosos) {
+        this.tuvoBloqueosExitosos = tuvoBloqueosExitosos;
     }
 }
