@@ -1,0 +1,20 @@
+logging:
+  level:
+    root: INFO
+    org.springframework.web: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN
+    org.hibernate.type.descriptor.sql: WARN
+    org.apache.catalina: WARN
+    org.springframework.boot.autoconfigure: WARN
+    org.example.tf25: INFO
+    http.access: INFO
+
+spring:
+  jpa:
+    open-in-view: false
+
+tf25:
+  venta:
+    exigir-bloqueos: false

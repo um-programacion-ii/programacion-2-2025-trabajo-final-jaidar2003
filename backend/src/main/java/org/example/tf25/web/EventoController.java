@@ -135,9 +135,25 @@ public class EventoController {
                 asientosIds
         );
 
-        // TODO más adelante:
-        // - actualizar sessionState.setAsientosSeleccionados(...) con los que queden BLOQUEADO
-        // - guardar la sesión
+        // Guardar asientos seleccionados en sesión (mínimo para Issue #11)
+        java.util.Set<String> exitosos = new java.util.HashSet<>();
+        for (var r : respuesta.resultados()) {
+            if (r.estado() != null && r.estado().equalsIgnoreCase("OK")) {
+                exitosos.add(r.asientoId());
+            }
+        }
+        boolean huboBloqueosReales = !exitosos.isEmpty();
+
+        // Si no hay "BLOQUEADO" (por ejemplo la cátedra tira 500), igual guardamos los pedidos
+        // para poder confirmar y que el flujo deje "PENDIENTE" (según consigna)
+        if (exitosos.isEmpty()) {
+            exitosos.addAll(asientosIds);
+        }
+
+        sessionState.setAsientosSeleccionados(exitosos);
+        sessionState.setTuvoBloqueosExitosos(huboBloqueosReales);
+        sessionState.setPasoActual(org.example.tf25.service.dto.PasoFlujoCompra.CONFIRMACION);
+        sessionService.guardarSesion(sessionState);
 
         return ResponseEntity.ok()
                 .header("X-Session-Id", sessionState.getSessionId())

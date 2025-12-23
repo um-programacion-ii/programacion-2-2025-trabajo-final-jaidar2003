@@ -49,11 +49,6 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Redis (para cache/estado, NO sesiones aún) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
-        </dependency>
 
         <!-- Kafka (se va a usar después para integrarse con la cátedra o tests) -->
         <dependency>

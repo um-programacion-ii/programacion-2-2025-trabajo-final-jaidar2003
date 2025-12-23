@@ -1,16 +1,18 @@
 package org.example.tf25.proxy.web;
 
-import lombok.extern.slf4j.Slf4j;
 import org.example.tf25.proxy.dto.PeticionBloqueoAsientosRemotaDto;
 import org.example.tf25.proxy.dto.RespuestaBloqueoAsientosRemotaDto;
 import org.example.tf25.proxy.service.BloqueoAsientosProxyService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@Slf4j
 @RestController
-@RequestMapping("/api/asientos/bloqueos")
+@RequestMapping("/api/endpoints/v1")
 public class BloqueoAsientosProxyController {
+
+    private static final Logger log = LoggerFactory.getLogger(BloqueoAsientosProxyController.class);
 
     private final BloqueoAsientosProxyService bloqueoAsientosProxyService;
 
@@ -18,11 +20,32 @@ public class BloqueoAsientosProxyController {
         this.bloqueoAsientosProxyService = bloqueoAsientosProxyService;
     }
 
-    @PostMapping
+    @PostMapping("/bloquear-asientos")
     public ResponseEntity<RespuestaBloqueoAsientosRemotaDto> bloquearAsientos(
+            @RequestHeader(value = "X-Session-Id", required = false) String sessionIdHeader,
             @RequestBody PeticionBloqueoAsientosRemotaDto peticion
     ) {
-        var respuesta = bloqueoAsientosProxyService.bloquearAsientos(peticion);
-        return ResponseEntity.ok(respuesta);
+        String sid = (sessionIdHeader != null && !sessionIdHeader.isBlank())
+                ? sessionIdHeader
+                : peticion.sessionId();
+        if (sid == null || sid.isBlank()) {
+            // Fallback: nunca devolver sessionId null
+            sid = java.util.UUID.randomUUID().toString();
+            log.warn("Proxy: X-Session-Id ausente; generando sid={} para bloquear asientos", sid);
+        }
+
+        // Re-armar DTO con el sid priorizado
+        PeticionBloqueoAsientosRemotaDto req = new PeticionBloqueoAsientosRemotaDto(
+                peticion.externalEventoId(), sid, peticion.asientosIds()
+        );
+
+        var resp = bloqueoAsientosProxyService.bloquearAsientos(req);
+        var respConSid = new RespuestaBloqueoAsientosRemotaDto(
+                resp.externalEventoId(), sid, resp.resultados()
+        );
+
+        return ResponseEntity.ok()
+                .header("X-Session-Id", sid)
+                .body(respConSid);
     }
 }

@@ -30,11 +30,10 @@ public class EventoService {
 
     public EventoService(
             EventoRepository eventoRepository,
-            RestClient.Builder restClientBuilder,
-            @Value("${tf25.proxy.base-url:http://localhost:8081}") String proxyBaseUrl
+            RestClient restClient
     ) {
         this.eventoRepository = eventoRepository;
-        this.restClient = restClientBuilder.baseUrl(proxyBaseUrl).build();
+        this.restClient = restClient;
     }
 
     @Transactional(readOnly = true)
@@ -64,7 +63,7 @@ public class EventoService {
     public int sincronizarEventos() {
         try {
             EventoProxyDto[] remotos = restClient.get()
-                    .uri("/api/eventos")
+                    .uri("/api/endpoints/v1/eventos-resumidos")
                     .retrieve()
                     .body(EventoProxyDto[].class);
 
@@ -114,7 +113,7 @@ public class EventoService {
     public int sincronizarEventoPorExternalId(String externalId) {
         try {
             EventoProxyDto dto = restClient.get()
-                    .uri("/api/eventos/{externalId}", externalId)
+                    .uri("/api/endpoints/v1/evento/{externalId}", externalId)
                     .retrieve()
                     .body(EventoProxyDto.class);
 
@@ -153,7 +152,7 @@ public class EventoService {
     public List<AsientoDto> obtenerAsientos(String externalEventoId) {
         try {
             AsientoDto[] asientos = restClient.get()
-                    .uri("/api/asientos/{externalEventoId}", externalEventoId)
+                    .uri("/api/endpoints/v1/asientos/{externalEventoId}", externalEventoId)
                     .retrieve()
                     .body(AsientoDto[].class);
 
@@ -162,8 +161,7 @@ public class EventoService {
             }
             return Arrays.asList(asientos);
         } catch (Exception ex) {
-            log.warn("No se pudieron obtener asientos desde el Proxy para externalId={}: {}", externalEventoId, ex.toString());
-            return List.of();
+            throw new RuntimeException("Error obteniendo asientos desde proxy: " + ex.getClass().getSimpleName(), ex);
         }
     }
 
@@ -181,7 +179,8 @@ public class EventoService {
         try {
             // Llamar al proxy
             RespuestaBloqueoAsientosDto respuesta = restClient.post()
-                    .uri("/api/asientos/bloqueos")
+                    .uri("/api/endpoints/v1/bloquear-asientos")
+                    .header("X-Session-Id", sessionState.getSessionId())
                     .body(peticion)
                     .retrieve()
                     .body(RespuestaBloqueoAsientosDto.class);

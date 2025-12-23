@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
 
 @RestController
-@RequestMapping("/api/eventos")
+@RequestMapping("/api/endpoints/v1")
 public class EventoProxyController {
 
     private static final Logger log = LoggerFactory.getLogger(EventoProxyController.class);
@@ -23,7 +23,7 @@ public class EventoProxyController {
         this.catedraRestClient = catedraRestClient;
     }
 
-    @GetMapping
+    @GetMapping("/eventos-resumidos")
     public ResponseEntity<?> listarEventos() {
         log.info("Proxy: pidiendo eventos resumidos a la cátedra...");
         try {
@@ -42,7 +42,7 @@ public class EventoProxyController {
         }
     }
 
-    @GetMapping("/{externalId}")
+    @GetMapping("/evento/{externalId}")
     public ResponseEntity<?> obtenerEvento(@PathVariable("externalId") String externalId) {
         log.info("Proxy: pidiendo evento {} a la cátedra...", externalId);
         try {
