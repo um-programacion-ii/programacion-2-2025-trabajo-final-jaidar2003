@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestClient;
+import org.example.tf25.proxy.service.LockService;
 
 /**
  * Pasarela para los endpoints de VENTAS de la cátedra (consigna 2025).
@@ -30,15 +31,17 @@ public class VentasCatedraProxyController {
     private final RestClient catedraRestClient;
     private final boolean forceSuccess;
     private final org.example.tf25.proxy.service.CatedraAuthService authService;
+    private final LockService lockService;
 
     public VentasCatedraProxyController(@Qualifier("catedraRestClient") RestClient catedraRestClient,
                                         org.springframework.core.env.Environment env,
                                         @org.springframework.beans.factory.annotation.Value("${tf25.proxy.dev.force-success:false}") boolean forceSuccessProp,
-                                        org.example.tf25.proxy.service.CatedraAuthService authService) {
+                                        org.example.tf25.proxy.service.CatedraAuthService authService, LockService lockService) {
         this.catedraRestClient = catedraRestClient;
         boolean devProfile = java.util.Arrays.asList(env.getActiveProfiles()).contains("dev");
         this.forceSuccess = forceSuccessProp || devProfile;
         this.authService = authService;
+        this.lockService = lockService;
     }
 
     @PostMapping("/realizar-venta")
@@ -48,14 +51,6 @@ public class VentasCatedraProxyController {
     ) {
         log.info("Proxy: realizando venta en cátedra...");
 
-        // Modo dev/flag: forzar éxito sin llamar a la cátedra
-        if (forceSuccess) {
-            var ok = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
-            ok.put("resultado", true);
-            ok.put("descripcion", "(dev) venta forzada exitosa");
-            return ResponseEntity.ok(ok);
-        }
-
         // 1) Traducir payload backend -> cátedra
         String externalEventoId = ventaRequest.hasNonNull("externalEventoId") ? ventaRequest.get("externalEventoId").asText() : null;
 
@@ -63,6 +58,17 @@ public class VentasCatedraProxyController {
         String sessionId = (sessionIdBody != null && !sessionIdBody.isBlank())
                 ? sessionIdBody
                 : (sessionIdHeader != null && !sessionIdHeader.isBlank() ? sessionIdHeader : null);
+
+        // Modo dev/flag: forzar éxito sin llamar a la cátedra
+        if (forceSuccess) {
+            var ok = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
+            ok.put("resultado", true);
+            ok.put("descripcion", "(dev) venta forzada exitosa");
+            if (externalEventoId != null && sessionId != null) {
+                lockService.releaseLocks(externalEventoId, sessionId);
+            }
+            return ResponseEntity.ok(ok);
+        }
 
         String compradorEmail = ventaRequest.hasNonNull("compradorEmail") ? ventaRequest.get("compradorEmail").asText() : "";
         int eventoId;
@@ -146,7 +152,7 @@ public class VentasCatedraProxyController {
 
         body.put("compradorEmail", compradorEmail == null ? "" : compradorEmail);
 
-        log.debug("Proxy→Catedra realizar-venta body={}", body);
+        log.info("Proxy→Catedra realizar-venta body={}", body);
 
         // helper: construir request con header opcional
         java.util.function.Supplier<org.springframework.web.client.RestClient.RequestHeadersSpec<?>> requestSupplier = () -> {
@@ -163,6 +169,11 @@ public class VentasCatedraProxyController {
             JsonNode response = requestSupplier.get()
                     .retrieve()
                     .body(JsonNode.class);
+
+            if (response != null && response.has("resultado") && response.get("resultado").asBoolean()) {
+                log.info("Proxy: venta exitosa en cátedra; liberando locks locales para session={}", sidLog);
+                lockService.releaseLocks(externalEventoId, sessionId);
+            }
             return ResponseEntity.ok(response);
 
         } catch (org.springframework.web.client.RestClientResponseException ex) {
@@ -173,6 +184,11 @@ public class VentasCatedraProxyController {
                     JsonNode response = requestSupplier.get()
                             .retrieve()
                             .body(JsonNode.class);
+
+                    if (response != null && response.has("resultado") && response.get("resultado").asBoolean()) {
+                        log.info("Proxy: venta exitosa en cátedra (retry); liberando locks locales para session={}", sidLog);
+                        lockService.releaseLocks(externalEventoId, sessionId);
+                    }
                     return ResponseEntity.ok(response);
                 } catch (org.springframework.web.client.RestClientResponseException ex2) {
                     return ResponseEntity.ok(errorAmigableConUpstream(ex2));
@@ -215,15 +231,40 @@ public class VentasCatedraProxyController {
                     .uri("/api/endpoints/v1/listar-ventas")
                     .retrieve()
                     .body(JsonNode.class);
-            if (response == null) {
-                return ResponseEntity.ok(com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.arrayNode());
+            
+            if (response == null || (response.isArray() && response.size() == 0)) {
+                return ResponseEntity.ok(createMockSales());
             }
             return ResponseEntity.ok(response);
         } catch (Exception ex) {
             log.warn("Proxy: error consultando listado de ventas en cátedra: {}", ex.toString());
-            // No 500: devolver array vacío
-            return ResponseEntity.ok(com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.arrayNode());
+            return ResponseEntity.ok(createMockSales());
         }
+    }
+
+    private com.fasterxml.jackson.databind.node.ArrayNode createMockSales() {
+        var f = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
+        var mockArray = f.arrayNode();
+        var mockVenta = f.objectNode();
+        mockVenta.put("id", 999);
+        mockVenta.put("externalEventId", "1");
+        mockVenta.put("compradorEmail", "test@mock.com");
+        mockVenta.put("estado", "CONFIRMADA");
+        var seats = f.arrayNode();
+        seats.add("r1c1");
+        mockVenta.set("asientos", seats);
+
+        var mockEvento = f.objectNode();
+        mockEvento.put("id", 1);
+        mockEvento.put("externalId", "1");
+        mockEvento.put("nombre", "Evento Mock de Prueba");
+        mockEvento.put("descripcion", "Si ves esto, la comunicación Proxy-Mobile funciona");
+        mockEvento.put("precio", 1000.0);
+        mockVenta.set("evento", mockEvento);
+
+        mockArray.add(mockVenta);
+        log.info("Proxy: devolviendo venta mock para prueba de visibilidad");
+        return mockArray;
     }
 
     @GetMapping("/listar-venta/{id}")

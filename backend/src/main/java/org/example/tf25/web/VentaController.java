@@ -3,6 +3,7 @@ package org.example.tf25.web;
 import org.example.tf25.domain.Venta;
 import org.example.tf25.service.VentaService;
 import org.example.tf25.service.dto.VentaDTO;
+import org.example.tf25.web.dto.VentaDto;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,8 +33,34 @@ public class VentaController {
     }
 
     @GetMapping
-    public List<VentaDTO> listarPorEvento(@RequestParam(value = "eventoId", required = false) Long eventoId) {
-        return ventaService.listarPorEvento(eventoId);
+    public List<VentaDto> listarPorEvento(@RequestParam(value = "eventoId", required = false) Long eventoId) {
+        return ventaService.listarEntidadesPorEvento(eventoId).stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    private VentaDto toDto(Venta v) {
+        String externalEventId = v.getExternalEventoId();
+        if (externalEventId == null || externalEventId.isBlank()) {
+            externalEventId = (v.getEvento() != null && v.getEvento().getExternalId() != null)
+                    ? v.getEvento().getExternalId()
+                    : "";
+        }
+        java.util.List<String> asientos = v.getAsientosIds() == null
+                ? java.util.List.of()
+                : new java.util.ArrayList<>(v.getAsientosIds());
+        String eventoNombre = (v.getEvento() != null && v.getEvento().getNombre() != null)
+                ? v.getEvento().getNombre()
+                : "";
+        String estadoStr = (v.getEstado() != null) ? v.getEstado().name() : "";
+        return new VentaDto(
+                v.getId(),
+                externalEventId,
+                v.getCompradorEmail(),
+                estadoStr,
+                asientos,
+                eventoNombre
+        );
     }
 
     public record VentaPendienteDto(Long id, String externalEventoId, String sessionId,

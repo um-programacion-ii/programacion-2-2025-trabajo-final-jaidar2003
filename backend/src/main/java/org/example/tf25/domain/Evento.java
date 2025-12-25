@@ -28,6 +28,9 @@ public class Evento {
     @Column(name = "external_id", unique = true)
     private String externalId;
 
+    @Enumerated(EnumType.STRING)
+    private EventoEstado estado = EventoEstado.ACTIVO;
+
     @OneToMany(mappedBy = "evento", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore
     private List<Venta> ventas = new ArrayList<>();
@@ -80,6 +83,14 @@ public class Evento {
 
     public void setExternalId(String externalId) {
         this.externalId = externalId;
+    }
+
+    public EventoEstado getEstado() {
+        return estado;
+    }
+
+    public void setEstado(EventoEstado estado) {
+        this.estado = estado;
     }
 
     public List<Venta> getVentas() {

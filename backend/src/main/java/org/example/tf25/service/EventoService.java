@@ -2,6 +2,7 @@ package org.example.tf25.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.example.tf25.domain.Evento;
+import org.example.tf25.domain.EventoEstado;
 import org.example.tf25.repository.EventoRepository;
 import org.example.tf25.service.dto.AsientoDto;
 import org.example.tf25.service.dto.PeticionBloqueoAsientosDto;
@@ -13,6 +14,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import org.springframework.http.ResponseEntity;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -42,6 +46,11 @@ public class EventoService {
     }
 
     @Transactional(readOnly = true)
+    public List<Evento> findByEstado(EventoEstado estado) {
+        return eventoRepository.findByEstado(estado);
+    }
+
+    @Transactional(readOnly = true)
     public Optional<Evento> findById(Long id) {
         return eventoRepository.findById(id);
     }
@@ -51,7 +60,10 @@ public class EventoService {
     }
 
     public void delete(Long id) {
-        eventoRepository.deleteById(id);
+        eventoRepository.findById(id).ifPresent(evento -> {
+            evento.setEstado(EventoEstado.ELIMINADO);
+            eventoRepository.save(evento);
+        });
     }
 
     /**
@@ -67,10 +79,16 @@ public class EventoService {
                     .retrieve()
                     .body(EventoProxyDto[].class);
 
-            if (remotos == null || remotos.length == 0) {
+            if (remotos == null) {
                 log.info("Sincronización de eventos: no se recibieron eventos remotos");
                 return 0;
             }
+
+            // 1. Guardar la lista de IDs externos que siguen vivos en la cátedra
+            List<String> idsRemotos = Arrays.stream(remotos)
+                    .filter(d -> d.getId() != null)
+                    .map(d -> d.getId().toString())
+                    .toList();
 
             int count = 0;
             for (EventoProxyDto dto : remotos) {
@@ -92,9 +110,22 @@ public class EventoService {
                 }
                 evento.setCupo(dto.getCupo() != null ? dto.getCupo() : 0);
                 evento.setPrecio(dto.getPrecio());
+                evento.setEstado(EventoEstado.ACTIVO); // Si vino en la lista, está activo
 
                 eventoRepository.save(evento);
                 count++;
+            }
+
+            // 2. "Soft Delete": Marcar como ELIMINADO lo que tenemos local pero no vino en remotos
+            List<Evento> locales = eventoRepository.findAll();
+            for (Evento local : locales) {
+                if (local.getExternalId() != null && !idsRemotos.contains(local.getExternalId())) {
+                    if (local.getEstado() != EventoEstado.ELIMINADO) {
+                        local.setEstado(EventoEstado.ELIMINADO);
+                        eventoRepository.save(local);
+                        log.info("Evento {} marcado como ELIMINADO porque ya no existe en la cátedra", local.getExternalId());
+                    }
+                }
             }
 
             log.info("Sincronización de eventos completada: {} eventos procesados", count);
@@ -119,6 +150,14 @@ public class EventoService {
 
             if (dto == null) {
                 log.warn("Sincronización individual: no se encontró evento con externalId={}", externalId);
+                // No se encontró en la cátedra -> lo marcamos como eliminado localmente
+                eventoRepository.findByExternalId(externalId).ifPresent(e -> {
+                    if (e.getEstado() != EventoEstado.ELIMINADO) {
+                        e.setEstado(EventoEstado.ELIMINADO);
+                        eventoRepository.save(e);
+                        log.info("Evento {} marcado como ELIMINADO localmente", externalId);
+                    }
+                });
                 return 0;
             }
 
@@ -137,6 +176,7 @@ public class EventoService {
             }
             evento.setCupo(dto.getCupo() != null ? dto.getCupo() : 0);
             evento.setPrecio(dto.getPrecio());
+            evento.setEstado(EventoEstado.ACTIVO);
 
             eventoRepository.save(evento);
 
@@ -177,16 +217,38 @@ public class EventoService {
         );
 
         try {
-            // Llamar al proxy
-            RespuestaBloqueoAsientosDto respuesta = restClient.post()
+            // Llamar al proxy y evitar problemas de Content-Type (p.ej. application/octet-stream)
+            ResponseEntity<byte[]> resp = restClient.post()
                     .uri("/api/endpoints/v1/bloquear-asientos")
                     .header("X-Session-Id", sessionState.getSessionId())
                     .body(peticion)
                     .retrieve()
-                    .body(RespuestaBloqueoAsientosDto.class);
+                    .toEntity(byte[].class);
 
-            if (respuesta == null) {
-                // Si por algún motivo no hay respuesta, devolvemos todo como fallo genérico
+            if (resp.getStatusCode().is2xxSuccessful()) {
+                byte[] bodyBytes = resp.getBody();
+                if (bodyBytes != null && bodyBytes.length > 0) {
+                    try {
+                        ObjectMapper om = new ObjectMapper()
+                                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+                        RespuestaBloqueoAsientosDto parsed = om.readValue(bodyBytes, RespuestaBloqueoAsientosDto.class);
+                        if (parsed != null) {
+                            return parsed;
+                        }
+                    } catch (Exception parseEx) {
+                        log.warn("Bloqueo: respuesta 2xx pero no se pudo parsear body ({}). Asumimos OK para asientos solicitados.", parseEx.getClass().getSimpleName());
+                    }
+                }
+                // Sin body o no parseable: asumimos OK para permitir continuar según política cátedra
+                return new RespuestaBloqueoAsientosDto(
+                        sessionState.getExternalEventoId(),
+                        sessionState.getSessionId(),
+                        asientosIds.stream()
+                                .map(id -> new ResultadoBloqueoAsientoDto(id, "OK", null))
+                                .toList()
+                );
+            } else {
+                // No 2xx: devolver errores por cada asiento
                 return new RespuestaBloqueoAsientosDto(
                         sessionState.getExternalEventoId(),
                         sessionState.getSessionId(),
@@ -194,13 +256,11 @@ public class EventoService {
                                 .map(id -> new ResultadoBloqueoAsientoDto(
                                         id,
                                         "ERROR",
-                                        "No se obtuvo respuesta del Proxy"
+                                        "Proxy devolvió status=" + resp.getStatusCode().value()
                                 ))
                                 .toList()
                 );
             }
-
-            return respuesta;
         } catch (Exception ex) {
             log.warn("No se pudo solicitar bloqueo de asientos al Proxy para externalId={} (session={}): {}",
                     sessionState.getExternalEventoId(), sessionState.getSessionId(), ex.toString());

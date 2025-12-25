@@ -10,7 +10,7 @@
 
 # Spring Boot local files
 /tmp/
-target/
+**/target/
 
 # Maven
 .mvn/wrapper/maven-wrapper.jar
@@ -21,8 +21,12 @@ target/
 .m2/
 
 # Build outputs
-build/
-out/
+**/build/
+**/out/
+*.jar
+*.zip
+*.war
+*.ear
 
 ##############################
 # IntelliJ IDEA / JetBrains
