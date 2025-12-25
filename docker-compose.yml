@@ -93,7 +93,7 @@ services:
       proxy:
         condition: service_started
     ports:
-      - "8080:8080"
+      - "9090:8080"
     extra_hosts:
       - "kafka:192.168.194.250"
     environment:

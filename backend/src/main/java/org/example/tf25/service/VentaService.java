@@ -92,6 +92,13 @@ public class VentaService {
     }
 
     @Transactional(readOnly = true)
+    public List<Venta> listarEntidadesPorEvento(Long eventoId) {
+        return (eventoId != null)
+                ? ventaRepository.findByEvento_Id(eventoId)
+                : ventaRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
     public List<Venta> listarPendientes(int limit) {
         int lim = Math.max(1, Math.min(limit, 100));
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, lim);
@@ -163,17 +170,44 @@ public class VentaService {
             return venta;
         }
 
-        // 3) Notificar a cátedra (intentar Kafka primero como pide la opción A sólida)
+        // 3) Notificar a cátedra. Intentamos primero vía HTTP Proxy para que Catedra 
+        // asocie la venta al usuario logueado (vía Token JWT que se propaga).
         int intento = venta.getIntentosNotificacion() + 1;
         venta.setIntentosNotificacion(intento);
         try {
-            log.info("Venta {}: intentando notificar a cátedra vía Kafka (intento {})...", venta.getId() != null ? venta.getId() : "NUEVA", intento);
-            ventaKafkaProducer.enviarNotificacionVenta(venta).join(); // Esperar resultado para simplificar flujo síncrono
+            log.info("Venta {}: notificando a cátedra vía HTTP Proxy (intento {})...", venta.getId(), intento);
+            
+            var payload = JsonNodeFactory.instance.objectNode()
+                    .put("externalEventoId", externalEventoId)
+                    .put("sessionId", sessionId)
+                    .put("compradorEmail", venta.getCompradorEmail() != null ? venta.getCompradorEmail() : "");
+            
+            var seatsArr = JsonNodeFactory.instance.arrayNode();
+            venta.getAsientosIds().forEach(seatsArr::add);
+            payload.set("asientosIds", seatsArr);
+
+            JsonNode resp = proxyRestClient.post()
+                    .uri("/api/endpoints/v1/realizar-venta")
+                    .header("X-Session-Id", sessionId)
+                    .body(payload)
+                    .retrieve()
+                    .body(JsonNode.class);
+
+            if (resp != null && resp.has("resultado") && resp.get("resultado").asBoolean()) {
+                venta.setEstado(VentaEstado.CONFIRMADA);
+                venta.setUltimoError(null);
+                venta.setNextRetryAt(null);
+                log.info("Venta {}: confirmada exitosamente vía HTTP Proxy", venta.getId());
+                return ventaRepository.save(venta);
+            }
+            
+            log.warn("Venta {}: HTTP Proxy no confirmó (resp={}), intentando Kafka como fallback...", venta.getId(), resp);
+            ventaKafkaProducer.enviarNotificacionVenta(venta).join();
 
             venta.setEstado(VentaEstado.CONFIRMADA);
             venta.setUltimoError(null);
             venta.setNextRetryAt(null);
-            log.info("Venta {}: notificada exitosamente y marcada como CONFIRMADA", venta.getId() != null ? venta.getId() : "NUEVA");
+            log.info("Venta {}: confirmada vía Kafka (fallback)", venta.getId());
             return ventaRepository.save(venta);
 
         } catch (Exception ex) {

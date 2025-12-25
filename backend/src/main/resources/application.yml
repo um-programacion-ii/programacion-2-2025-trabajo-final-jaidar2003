@@ -23,6 +23,9 @@ logging:
     org.springframework: INFO
 
 tf25:
+  catedra:
+    auth-url: ${TF25_CATEDRA_AUTH_URL:http://192.168.194.250:8080/api/authenticate}
+    register-url: ${TF25_CATEDRA_REGISTER_URL:http://192.168.194.250:8080/api/v1/agregar_usuario}
   kafka:
     topic:
       ventas: ${TF25_KAFKA_TOPIC_VENTAS:ventas-confirmadas}

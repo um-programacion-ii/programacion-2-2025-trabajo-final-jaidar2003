@@ -6,9 +6,15 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 @Configuration
 public class CatedraClientConfig {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CatedraClientConfig.class);
 
     @Bean
     public RestClient catedraRestClient(
@@ -25,6 +31,24 @@ public class CatedraClientConfig {
                 .baseUrl(baseUrl)
                 .requestFactory(factory)
                 .requestInterceptor((request, body, execution) -> {
+                    // 1. Intentar capturar Authorization de la petición entrante (Mobile -> Proxy)
+                    ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+                    if (attributes != null) {
+                        HttpServletRequest incomingRequest = attributes.getRequest();
+                        String authHeader = incomingRequest.getHeader("Authorization");
+                        if (authHeader != null && !authHeader.isBlank()) {
+                            log.info("Proxy: propagando token de usuario para {} {}", request.getMethod(), request.getURI());
+                            request.getHeaders().set("Authorization", authHeader);
+                            return execution.execute(request, body);
+                        }
+                    }
+
+                    // 2. Si la petición ya trae un token (propio del usuario), lo respetamos
+                    if (request.getHeaders().containsKey("Authorization")) {
+                        return execution.execute(request, body);
+                    }
+
+                    // 3. Si no, usamos el sistema de login automático del Proxy (el del YAML/token.txt)
                     // Evitar añadir Authorization al endpoint de login para no generar recursión
                     String path = request.getURI().getPath();
                     String loginPath = catedraProperties.getAuth() != null ? catedraProperties.getAuth().getLoginPath() : null;

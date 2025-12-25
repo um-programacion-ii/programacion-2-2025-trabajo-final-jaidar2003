@@ -1,6 +1,7 @@
 package org.example.tf25.web;
 
 import org.example.tf25.domain.Evento;
+import org.example.tf25.domain.EventoEstado;
 import org.example.tf25.service.EventoService;
 import org.example.tf25.service.SessionService;
 import org.example.tf25.service.dto.AsientoDto;
@@ -28,8 +29,11 @@ public class EventoController {
     }
 
     @GetMapping
-    public List<Evento> listar() {
-        return eventoService.findAll();
+    public List<Evento> listar(@RequestParam(value = "mostrarEliminados", defaultValue = "false") boolean mostrarEliminados) {
+        if (mostrarEliminados) {
+            return eventoService.findAll();
+        }
+        return eventoService.findByEstado(EventoEstado.ACTIVO);
     }
 
     @GetMapping("/{id}")
