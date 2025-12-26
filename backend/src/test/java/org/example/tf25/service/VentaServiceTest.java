@@ -66,7 +66,7 @@ class VentaServiceTest {
         when(ventaKafkaProducer.enviarNotificacionVenta(any(Venta.class))).thenReturn(CompletableFuture.completedFuture(null));
 
         // WHEN
-        Venta v = ventaService.confirmarVentaDesdeSesion(sessionId, "test@test.com");
+        Venta v = ventaService.confirmarVentaDesdeSesion(sessionId, "test@test.com", java.util.List.of());
 
         // THEN
         assertEquals(VentaEstado.CONFIRMADA, v.getEstado());
@@ -90,7 +90,7 @@ class VentaServiceTest {
         when(ventaKafkaProducer.enviarNotificacionVenta(any(Venta.class))).thenReturn(futureFalla);
 
         // WHEN
-        Venta v = ventaService.confirmarVentaDesdeSesion(sessionId, "test@test.com");
+        Venta v = ventaService.confirmarVentaDesdeSesion(sessionId, "test@test.com", java.util.List.of());
 
         // THEN
         assertEquals(VentaEstado.PENDIENTE, v.getEstado());
@@ -121,7 +121,7 @@ class VentaServiceTest {
         when(ventaKafkaProducer.enviarNotificacionVenta(any(Venta.class))).thenReturn(futureFalla);
 
         // WHEN
-        Venta v = ventaService.confirmarVentaDesdeSesion(sessionId, "test@test.com");
+        Venta v = ventaService.confirmarVentaDesdeSesion(sessionId, "test@test.com", java.util.List.of());
 
         // THEN
         assertEquals(VentaEstado.ERROR, v.getEstado());

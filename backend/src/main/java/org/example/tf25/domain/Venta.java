@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -38,6 +39,11 @@ public class Venta {
     @CollectionTable(name = "venta_asientos", joinColumns = @JoinColumn(name = "venta_id"))
     @Column(name = "asiento_id")
     private Set<String> asientosIds = new LinkedHashSet<>();
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "venta_ocupantes", joinColumns = @JoinColumn(name = "venta_id"))
+    @Column(name = "nombre")
+    private List<String> nombresOcupantes = new java.util.ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     private VentaEstado estado = VentaEstado.PENDIENTE;
@@ -96,6 +102,9 @@ public class Venta {
 
     public Set<String> getAsientosIds() { return asientosIds; }
     public void setAsientosIds(Set<String> asientosIds) { this.asientosIds = asientosIds; }
+
+    public List<String> getNombresOcupantes() { return nombresOcupantes; }
+    public void setNombresOcupantes(List<String> nombresOcupantes) { this.nombresOcupantes = nombresOcupantes; }
 
     public VentaEstado getEstado() { return estado; }
     public void setEstado(VentaEstado estado) { this.estado = estado; }

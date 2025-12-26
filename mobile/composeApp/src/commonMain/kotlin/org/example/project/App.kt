@@ -34,6 +34,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -46,6 +50,7 @@ import org.example.project.model.EventoResumido
 import org.example.project.model.LoginRequest
 import org.example.project.model.RegisterRequest
 import org.example.project.di.koinInject
+import org.example.project.ui.*
 
 sealed class Screen {
     object Login : Screen()
@@ -60,10 +65,9 @@ sealed class Screen {
 fun App() {
     MaterialTheme {
         val authRepository: AuthRepository = koinInject()
-        val eventRepo: EventoRepository = koinInject()
-        val ventaRepo: VentaRepository = koinInject()
 
-        val initialScreen = if (authRepository.isLoggedIn()) Screen.Home else Screen.Login
+        // CAMBIO: Forzamos que la pantalla inicial sea siempre Login
+        val initialScreen = Screen.Login 
         var currentScreen by remember { mutableStateOf<Screen>(initialScreen) }
         val backstack = remember { mutableStateListOf<Screen>(initialScreen) }
 
@@ -82,47 +86,47 @@ fun App() {
         Box(modifier = Modifier.fillMaxSize()) {
             when (val screen = currentScreen) {
                 is Screen.Login -> LoginScreen(
+                    viewModel = koinInject(),
                     onLoginSuccess = { 
                         backstack.clear()
                         backstack.add(Screen.Home)
                         currentScreen = Screen.Home
                     },
-                    onRegisterClick = { navigateTo(Screen.Register) },
-                    authRepository = authRepository
+                    onRegisterClick = { navigateTo(Screen.Register) }
                 )
                 is Screen.Register -> RegisterScreen(
+                    viewModel = koinInject(),
                     onRegisterSuccess = { 
                         backstack.clear()
                         backstack.add(Screen.Home)
                         currentScreen = Screen.Home
                     },
-                    onBack = { goBack() },
-                    authRepository = authRepository
+                    onBack = { goBack() }
                 )
                 is Screen.Home -> HomeScreen(
+                    viewModel = koinInject(),
                     onEventClick = { navigateTo(Screen.EventDetail(it)) },
                     onHistoryClick = { navigateTo(Screen.History) },
                     onLogout = {
-                        authRepository.logout()
                         backstack.clear()
                         backstack.add(Screen.Login)
                         currentScreen = Screen.Login
-                    },
-                    repo = eventRepo
+                    }
                 )
                 is Screen.History -> HistoryScreen(
-                    onBack = { goBack() },
-                    ventaRepo = ventaRepo
+                    viewModel = koinInject(),
+                    onBack = { goBack() }
                 )
                 is Screen.EventDetail -> EventDetailScreen(
+                    viewModel = koinInject(),
                     event = screen.event,
                     onBack = { goBack() },
                     onConfirmSeats = { seats, sessionId ->
                         navigateTo(Screen.ConfirmPurchase(screen.event, seats, sessionId))
-                    },
-                    ventaRepo = ventaRepo
+                    }
                 )
                 is Screen.ConfirmPurchase -> ConfirmPurchaseScreen(
+                    viewModel = koinInject(),
                     event = screen.event,
                     seats = screen.selectedSeats,
                     sessionId = screen.sessionId,
@@ -131,8 +135,7 @@ fun App() {
                         backstack.clear()
                         backstack.add(Screen.Home)
                         currentScreen = Screen.Home
-                    },
-                    ventaRepo = ventaRepo
+                    }
                 )
             }
         }
@@ -140,13 +143,8 @@ fun App() {
 }
 
 @Composable
-fun LoginScreen(onLoginSuccess: () -> Unit, onRegisterClick: () -> Unit, authRepository: AuthRepository) {
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf<String?>(null) }
-    var loading by remember { mutableStateOf(false) }
+fun LoginScreen(viewModel: LoginViewModel, onLoginSuccess: () -> Unit, onRegisterClick: () -> Unit) {
     val scope = rememberCoroutineScope()
-
     Column(
         horizontalAlignment = Alignment.CenterHorizontally, 
         modifier = Modifier
@@ -158,34 +156,26 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegisterClick: () -> Unit, authRep
         Text("Login", style = MaterialTheme.typography.h4)
         Spacer(modifier = Modifier.height(16.dp))
         
-        OutlinedTextField(value = username, onValueChange = { username = it }, label = { Text("Username") })
+        OutlinedTextField(
+            value = viewModel.username, 
+            onValueChange = { viewModel.username = it }, 
+            label = { Text("Username") }
+        )
         Spacer(modifier = Modifier.height(8.dp))
         
         OutlinedTextField(
-            value = password, 
-            onValueChange = { password = it }, 
+            value = viewModel.password, 
+            onValueChange = { viewModel.password = it }, 
             label = { Text("Password") },
             visualTransformation = PasswordVisualTransformation()
         )
         Spacer(modifier = Modifier.height(16.dp))
         
-        if (loading) {
+        if (viewModel.loading) {
             CircularProgressIndicator()
         } else {
             Button(
-                onClick = {
-                    loading = true
-                    error = null
-                    scope.launch {
-                        val result = authRepository.login(LoginRequest(username, password))
-                        loading = false
-                        if (result.isSuccess) {
-                            onLoginSuccess()
-                        } else {
-                            error = "Login failed: ${result.exceptionOrNull()?.message}"
-                        }
-                    }
-                },
+                onClick = { viewModel.login(scope, onLoginSuccess) },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Login")
@@ -199,27 +189,16 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onRegisterClick: () -> Unit, authRep
             }
         }
         
-        if (error != null) {
+        viewModel.error?.let {
             Spacer(modifier = Modifier.height(8.dp))
-            Text(error!!, color = Color.Red)
+            Text(it, color = Color.Red)
         }
     }
 }
 
 @Composable
-fun RegisterScreen(onRegisterSuccess: () -> Unit, onBack: () -> Unit, authRepository: AuthRepository) {
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var firstName by remember { mutableStateOf("") }
-    var lastName by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var nombreAlumno by remember { mutableStateOf("Juan Manuel Aidar") }
-    var descripcionProyecto by remember { mutableStateOf("TF25") }
-    
-    var error by remember { mutableStateOf<String?>(null) }
-    var loading by remember { mutableStateOf(false) }
+fun RegisterScreen(viewModel: RegisterViewModel, onRegisterSuccess: () -> Unit, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
-
     Column(
         horizontalAlignment = Alignment.CenterHorizontally, 
         modifier = Modifier
@@ -229,34 +208,20 @@ fun RegisterScreen(onRegisterSuccess: () -> Unit, onBack: () -> Unit, authReposi
         Text("Crear Cuenta", style = MaterialTheme.typography.h4)
         Spacer(modifier = Modifier.height(16.dp))
 
-        OutlinedTextField(value = username, onValueChange = { username = it }, label = { Text("Usuario") })
-        OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Contraseña") }, visualTransformation = PasswordVisualTransformation())
-        OutlinedTextField(value = firstName, onValueChange = { firstName = it }, label = { Text("Nombre") })
-        OutlinedTextField(value = lastName, onValueChange = { lastName = it }, label = { Text("Apellido") })
-        OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") })
-        OutlinedTextField(value = nombreAlumno, onValueChange = { nombreAlumno = it }, label = { Text("Nombre Alumno") })
-        OutlinedTextField(value = descripcionProyecto, onValueChange = { descripcionProyecto = it }, label = { Text("Proyecto") })
+        OutlinedTextField(value = viewModel.username, onValueChange = { viewModel.username = it }, label = { Text("Usuario") })
+        OutlinedTextField(value = viewModel.password, onValueChange = { viewModel.password = it }, label = { Text("Contraseña") }, visualTransformation = PasswordVisualTransformation())
+        OutlinedTextField(value = viewModel.firstName, onValueChange = { viewModel.firstName = it }, label = { Text("Nombre") })
+        OutlinedTextField(value = viewModel.lastName, onValueChange = { viewModel.lastName = it }, label = { Text("Apellido") })
+        OutlinedTextField(value = viewModel.email, onValueChange = { viewModel.email = it }, label = { Text("Email") })
+        OutlinedTextField(value = viewModel.nombreAlumno, onValueChange = { viewModel.nombreAlumno = it }, label = { Text("Nombre Alumno") })
+        OutlinedTextField(value = viewModel.descripcionProyecto, onValueChange = { viewModel.descripcionProyecto = it }, label = { Text("Proyecto") })
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (loading) {
+        if (viewModel.loading) {
             CircularProgressIndicator()
         } else {
-            Button(onClick = {
-                loading = true
-                error = null
-                scope.launch {
-                    val result = authRepository.register(
-                        RegisterRequest(username, password, firstName, lastName, email, nombreAlumno, descripcionProyecto)
-                    )
-                    loading = false
-                    if (result.isSuccess) {
-                        onRegisterSuccess()
-                    } else {
-                        error = "Error: ${result.exceptionOrNull()?.message}"
-                    }
-                }
-            }) {
+            Button(onClick = { viewModel.register(scope, onRegisterSuccess) }) {
                 Text("Registrarse")
             }
             TextButton(onClick = onBack) {
@@ -264,27 +229,18 @@ fun RegisterScreen(onRegisterSuccess: () -> Unit, onBack: () -> Unit, authReposi
             }
         }
 
-        if (error != null) {
+        viewModel.error?.let {
             Spacer(modifier = Modifier.height(8.dp))
-            Text(error!!, color = Color.Red)
+            Text(it, color = Color.Red)
         }
     }
 }
 
 @Composable
-fun HomeScreen(onEventClick: (EventoResumido) -> Unit, onHistoryClick: () -> Unit, onLogout: () -> Unit, repo: EventoRepository) {
-    var events by remember { mutableStateOf<List<EventoResumido>>(emptyList()) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var loading by remember { mutableStateOf(true) }
-
+fun HomeScreen(viewModel: HomeViewModel, onEventClick: (EventoResumido) -> Unit, onHistoryClick: () -> Unit, onLogout: () -> Unit) {
+    val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) {
-        try {
-            events = repo.getEventos()
-        } catch (e: Exception) {
-            error = e.message ?: "Unknown error"
-        } finally {
-            loading = false
-        }
+        viewModel.loadEvents(scope)
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -292,23 +248,26 @@ fun HomeScreen(onEventClick: (EventoResumido) -> Unit, onHistoryClick: () -> Uni
             Button(onClick = onHistoryClick) {
                 Text("Mis Compras")
             }
-            Button(onClick = onLogout) {
+            Button(onClick = {
+                viewModel.logout()
+                onLogout()
+            }) {
                 Text("Logout")
             }
         }
         Text("Eventos Disponibles", style = MaterialTheme.typography.h4)
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (loading) {
+        if (viewModel.loading) {
             CircularProgressIndicator()
         }
 
-        if (error != null) {
-            Text("Error: $error", color = Color.Red)
+        viewModel.error?.let {
+            Text("Error: $it", color = Color.Red)
         }
 
         LazyColumn {
-            items(events) { event ->
+            items(viewModel.events) { event ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -329,66 +288,14 @@ fun HomeScreen(onEventClick: (EventoResumido) -> Unit, onHistoryClick: () -> Uni
 
 @Composable
 fun EventDetailScreen(
+    viewModel: EventDetailViewModel,
     event: EventoResumido,
     onBack: () -> Unit,
-    onConfirmSeats: (List<String>, String) -> Unit,
-    ventaRepo: VentaRepository
+    onConfirmSeats: (List<String>, String) -> Unit
 ) {
-    var asientos by remember { mutableStateOf<List<Asiento>>(emptyList()) }
-    var sessionId by remember { mutableStateOf<String?>(null) }
-    var selectedSeats by remember { mutableStateOf(setOf<String>()) }
-    var loading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-
     LaunchedEffect(event.id) {
-        try {
-            val (ocupados, sesion) = ventaRepo.getAsientos(event.id)
-
-            // Mapear ocupados por id para lookup rápido
-            val ocupadosPorId = ocupados.associateBy { it.id }
-
-            // Inferir tamaño de la sala desde los ids con formato r{fila}c{col}
-            val regex = Regex("""r(\d+)c(\d+)""")
-            var maxFila = 0
-            var maxCol = 0
-            for (a in ocupados) {
-                val m = regex.matchEntire(a.id)
-                if (m != null) {
-                    val f = m.groupValues[1].toInt()
-                    val c = m.groupValues[2].toInt()
-                    if (f > maxFila) maxFila = f
-                    if (c > maxCol) maxCol = c
-                }
-            }
-            // Valores mínimos razonables si no hay datos suficientes
-            if (maxFila < 9) maxFila = 9
-            if (maxCol < 6) maxCol = 6
-
-            // Reconstruir grilla completa: lo que no venga = LIBRE
-            val todos = mutableListOf<Asiento>()
-            for (fila in 1..maxFila) {
-                for (col in 1..maxCol) {
-                    val id = "r${fila}c${col}"
-                    val existente = ocupadosPorId[id]
-                    if (existente != null) {
-                        todos += existente
-                    } else {
-                        todos += Asiento(
-                            id = id,
-                            estado = "LIBRE"
-                        )
-                    }
-                }
-            }
-
-            asientos = todos
-            sessionId = sesion
-        } catch (e: Exception) {
-            error = e.message
-        } finally {
-            loading = false
-        }
+        viewModel.loadAsientos(scope, event.id)
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
@@ -398,34 +305,47 @@ fun EventDetailScreen(
         Text(event.descripcion)
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (loading) {
+        if (viewModel.loading) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
-        } else if (error != null) {
-            Text("Error: $error", color = Color.Red)
+        } else if (viewModel.error != null) {
+            Text("Error: ${viewModel.error}", color = Color.Red)
         } else {
-            Text("Selecciona tus asientos:", style = MaterialTheme.typography.h6)
+            Text("Selecciona tus asientos (máximo 4):", style = MaterialTheme.typography.h6)
             Spacer(modifier = Modifier.height(8.dp))
+
+            // Leyenda de colores
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                LegendItem("Libre", Color(0xFF4CAF50))
+                LegendItem("Seleccionado", Color(0xFF2196F3))
+                LegendItem("Bloqueado", Color(0xFFFFC107))
+                LegendItem("Vendido", Color.Red)
+            }
+
             Box(modifier = Modifier.weight(1f)) {
                 LazyVerticalGrid(columns = GridCells.Adaptive(80.dp)) {
-                    items(asientos) { asiento ->
-                        val isSelected = selectedSeats.contains(asiento.id)
-                        val isOccupied = asiento.estado != "LIBRE"
+                    items(viewModel.asientos) { asiento ->
+                        val isSelected = viewModel.selectedSeats.contains(asiento.id)
+                        val isOccupied = asiento.estado == "Vendido" || asiento.estado == "Bloqueado"
 
                         Card(
                             modifier = Modifier
                                 .padding(4.dp)
-                                .clickable(enabled = !isOccupied) {
-                                    if (isSelected) selectedSeats -= asiento.id
-                                    else selectedSeats += asiento.id
+                                .clickable(enabled = asiento.estado == "LIBRE") {
+                                    viewModel.toggleSeat(asiento.id)
                                 },
                             backgroundColor = when {
-                                isOccupied -> Color.Gray
-                                isSelected -> Color.Green
-                                else -> Color.LightGray
+                                isSelected -> Color(0xFF2196F3) // Azul (Seleccionado)
+                                asiento.estado == "Vendido" -> Color.Red // Rojo (Vendido)
+                                asiento.estado == "Bloqueado" -> Color(0xFFFFC107) // Amarillo (Bloqueado)
+                                asiento.estado == "LIBRE" -> Color(0xFF4CAF50) // Verde (Libre)
+                                else -> Color.Gray
                             }
                         ) {
                             Box(modifier = Modifier.padding(8.dp), contentAlignment = Alignment.Center) {
-                                Text(asiento.id)
+                                Text(asiento.id, color = Color.White)
                             }
                         }
                     }
@@ -435,19 +355,12 @@ fun EventDetailScreen(
             Spacer(modifier = Modifier.height(16.dp))
             Button(
                 modifier = Modifier.fillMaxWidth(),
-                enabled = selectedSeats.isNotEmpty() && sessionId != null,
+                enabled = viewModel.selectedSeats.isNotEmpty() && viewModel.sessionId != null,
                 onClick = {
-                    scope.launch {
-                        try {
-                            ventaRepo.bloquearAsientos(event.externalId!!, sessionId!!, selectedSeats.toList())
-                            onConfirmSeats(selectedSeats.toList(), sessionId!!)
-                        } catch (e: Exception) {
-                            error = "Error al bloquear: ${e.message}"
-                        }
-                    }
+                    viewModel.confirmSelectedSeats(scope, event.externalId ?: "", onConfirmSeats)
                 }
             ) {
-                Text("Continuar con ${selectedSeats.size} asientos")
+                Text("Continuar con ${viewModel.selectedSeats.size} asientos")
             }
         }
     }
@@ -455,19 +368,17 @@ fun EventDetailScreen(
 
 @Composable
 fun ConfirmPurchaseScreen(
+    viewModel: ConfirmPurchaseViewModel,
     event: EventoResumido,
     seats: List<String>,
     sessionId: String,
     onBack: () -> Unit,
-    onSuccess: () -> Unit,
-    ventaRepo: VentaRepository
+    onSuccess: () -> Unit
 ) {
-    var email by remember { mutableStateOf("") }
-    var loading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    var showConfirmDialog by remember { mutableStateOf(false) }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         Button(onClick = onBack) { Text("Volver") }
         Spacer(modifier = Modifier.height(16.dp))
         Text("Confirmar Compra", style = MaterialTheme.typography.h4)
@@ -478,60 +389,92 @@ fun ConfirmPurchaseScreen(
         Text("Total: $${event.precio * seats.size}", style = MaterialTheme.typography.h5)
         Spacer(modifier = Modifier.height(16.dp))
 
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("Email del comprador") },
-            modifier = Modifier.fillMaxWidth()
-        )
+        Text("Datos de los ocupantes:", style = MaterialTheme.typography.h6)
+        Spacer(modifier = Modifier.height(8.dp))
+
+        seats.forEach { seatId ->
+            Text("Asiento $seatId", style = MaterialTheme.typography.subtitle2)
+            Row(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = viewModel.occupantNames[seatId] ?: "",
+                    onValueChange = { viewModel.occupantNames[seatId] = it },
+                    label = { Text("Nombre") },
+                    modifier = Modifier.weight(1f).padding(end = 4.dp)
+                )
+                OutlinedTextField(
+                    value = viewModel.occupantLastNames[seatId] ?: "",
+                    onValueChange = { viewModel.occupantLastNames[seatId] = it },
+                    label = { Text("Apellido") },
+                    modifier = Modifier.weight(1f).padding(start = 4.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (loading) {
+        if (viewModel.loading) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
         } else {
+            val canConfirm = seats.all { 
+                (viewModel.occupantNames[it]?.isNotBlank() ?: false) && 
+                (viewModel.occupantLastNames[it]?.isNotBlank() ?: false)
+            }
             Button(
                 modifier = Modifier.fillMaxWidth(),
-                enabled = email.isNotBlank(),
-                onClick = {
-                    loading = true
-                    scope.launch {
-                        try {
-                            ventaRepo.confirmarVenta(sessionId, email)
-                            onSuccess()
-                        } catch (e: Exception) {
-                            error = e.message
-                        } finally {
-                            loading = false
-                        }
-                    }
-                }
+                enabled = canConfirm,
+                onClick = { showConfirmDialog = true }
             ) {
                 Text("Finalizar Compra")
             }
         }
 
-        if (error != null) {
+        if (showConfirmDialog) {
+            androidx.compose.material.AlertDialog(
+                onDismissRequest = { showConfirmDialog = false },
+                title = { Text("Confirmar Compra") },
+                text = { Text("¿Estás seguro de que deseas comprar ${seats.size} asiento(s) para el evento ${event.nombre}?") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showConfirmDialog = false
+                        viewModel.confirmPurchase(scope, sessionId, seats, onSuccess)
+                    }) {
+                        Text("Confirmar")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showConfirmDialog = false }) {
+                        Text("Cancelar")
+                    }
+                }
+            )
+        }
+
+        viewModel.error?.let {
             Spacer(modifier = Modifier.height(8.dp))
-            Text(error!!, color = Color.Red)
+            Text(it, color = Color.Red)
         }
     }
 }
 
 @Composable
-fun HistoryScreen(onBack: () -> Unit, ventaRepo: VentaRepository) {
-    var ventas by remember { mutableStateOf<List<org.example.project.model.Venta>>(emptyList()) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var loading by remember { mutableStateOf(true) }
+fun LegendItem(text: String, color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(12.dp)
+                .background(color, shape = CircleShape)
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(text, style = MaterialTheme.typography.caption)
+    }
+}
 
+@Composable
+fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit) {
+    val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) {
-        try {
-            ventas = ventaRepo.getVentas()
-        } catch (e: Exception) {
-            error = e.message ?: "Error al cargar historial"
-        } finally {
-            loading = false
-        }
+        viewModel.loadHistory(scope)
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
@@ -540,22 +483,23 @@ fun HistoryScreen(onBack: () -> Unit, ventaRepo: VentaRepository) {
         Text("Mis Compras", style = MaterialTheme.typography.h4)
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (loading) {
+        if (viewModel.loading) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
-        } else if (error != null) {
-            Text("Error: $error", color = Color.Red)
-        } else if (ventas.isEmpty()) {
+        } else if (viewModel.error != null) {
+            Text("Error: ${viewModel.error}", color = Color.Red)
+        } else if (viewModel.ventas.isEmpty()) {
             Text("No tienes compras realizadas.")
         } else {
             LazyColumn {
-                items(ventas) { venta ->
+                items(viewModel.ventas) { venta ->
                     Card(modifier = Modifier.fillMaxWidth().padding(8.dp), elevation = 4.dp) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text("Compra #${venta.id}", style = MaterialTheme.typography.h6)
-                            Text("Evento: ${venta.evento?.nombre ?: venta.externalEventId}")
+                            Text("Evento: ${venta.eventoNombre ?: venta.evento?.nombre ?: venta.externalEventId}")
                             Text("Asientos: ${venta.asientos.joinToString()}")
-                            Text("Estado: ${venta.estado}")
-                            Text("Email: ${venta.compradorEmail}")
+                            Text("Ocupantes: ${venta.ocupantes.joinToString()}")
+                            Text("Estado: ${venta.estado ?: ""}")
+                            Text("Email: ${venta.compradorEmail ?: ""}")
                         }
                     }
                 }

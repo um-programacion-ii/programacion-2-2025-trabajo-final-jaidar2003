@@ -12,5 +12,6 @@ public record VentaDto(
         String compradorEmail,
         String estado,
         List<String> asientos,
-        String eventoNombre
+        String eventoNombre,
+        List<String> ocupantes
 ) {}

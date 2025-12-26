@@ -33,14 +33,17 @@ public class VentaController {
     }
 
     @GetMapping
-    public List<VentaDto> listarPorEvento(@RequestParam(value = "eventoId", required = false) Long eventoId) {
-        return ventaService.listarEntidadesPorEvento(eventoId).stream()
+    public List<VentaDto> listar(
+            @RequestParam(value = "eventoId", required = false) Long eventoId,
+            @RequestParam(value = "email", required = false) String email
+    ) {
+        return ventaService.listarEntidades(eventoId, email).stream()
                 .map(this::toDto)
                 .toList();
     }
 
     private VentaDto toDto(Venta v) {
-        String externalEventId = v.getExternalEventoId();
+        String externalEventId = v.getExternalEventoId() != null ? v.getExternalEventoId() : "";
         if (externalEventId == null || externalEventId.isBlank()) {
             externalEventId = (v.getEvento() != null && v.getEvento().getExternalId() != null)
                     ? v.getEvento().getExternalId()
@@ -53,13 +56,16 @@ public class VentaController {
                 ? v.getEvento().getNombre()
                 : "";
         String estadoStr = (v.getEstado() != null) ? v.getEstado().name() : "";
+        List<String> ocupantes = v.getNombresOcupantes() == null ? List.of() : v.getNombresOcupantes();
+
         return new VentaDto(
                 v.getId(),
                 externalEventId,
-                v.getCompradorEmail(),
+                v.getCompradorEmail() != null ? v.getCompradorEmail() : "",
                 estadoStr,
                 asientos,
-                eventoNombre
+                eventoNombre,
+                ocupantes
         );
     }
 
@@ -71,14 +77,14 @@ public class VentaController {
         int lim = (limit == null) ? 50 : limit;
         return ventaService.listarPendientes(lim).stream()
                 .map(v -> new VentaPendienteDto(
-                        v.getId(), v.getExternalEventoId(), v.getSessionId(),
+                        v.getId(), v.getExternalEventoId() != null ? v.getExternalEventoId() : "", v.getSessionId(),
                         v.getEstado() == null ? null : v.getEstado().name(),
                         v.getIntentosNotificacion(), v.getUltimoError(), v.getNextRetryAt()
                 ))
                 .toList();
     }
 
-    public record ConfirmarVentaRequest(String compradorEmail) {}
+    public record ConfirmarVentaRequest(String compradorEmail, List<String> nombresOcupantes) {}
 
     public record ConfirmarVentaResponse(
             Long ventaId,
@@ -94,8 +100,9 @@ public class VentaController {
             @RequestBody(required = false) ConfirmarVentaRequest req
     ) {
         String email = (req != null) ? req.compradorEmail() : null;
+        List<String> ocupantes = (req != null) ? req.nombresOcupantes() : null;
 
-        Venta v = ventaService.confirmarVentaDesdeSesion(sessionId, email);
+        Venta v = ventaService.confirmarVentaDesdeSesion(sessionId, email, ocupantes);
 
         String msg = v.getEstado() == org.example.tf25.domain.VentaEstado.CONFIRMADA
                 ? "Venta confirmada y notificada a la cátedra"
@@ -103,7 +110,7 @@ public class VentaController {
 
         return ResponseEntity.ok(new ConfirmarVentaResponse(
                 v.getId(),
-                v.getExternalEventoId(),
+                v.getExternalEventoId() != null ? v.getExternalEventoId() : "",
                 v.getSessionId(),
                 v.getEstado().name(),
                 msg

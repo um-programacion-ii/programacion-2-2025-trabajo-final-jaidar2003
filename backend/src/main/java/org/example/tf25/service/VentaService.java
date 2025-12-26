@@ -92,7 +92,10 @@ public class VentaService {
     }
 
     @Transactional(readOnly = true)
-    public List<Venta> listarEntidadesPorEvento(Long eventoId) {
+    public List<Venta> listarEntidades(Long eventoId, String email) {
+        if (email != null && !email.isBlank()) {
+            return ventaRepository.findByCompradorEmailIgnoreCase(email);
+        }
         return (eventoId != null)
                 ? ventaRepository.findByEvento_Id(eventoId)
                 : ventaRepository.findAll();
@@ -105,7 +108,7 @@ public class VentaService {
         return ventaRepository.findByEstadoOrderByNextRetryAtAsc(VentaEstado.PENDIENTE, pageable);
     }
 
-    public Venta confirmarVentaDesdeSesion(String sessionId, String compradorEmail) {
+    public Venta confirmarVentaDesdeSesion(String sessionId, String compradorEmail, List<String> nombresOcupantes) {
         SessionState sesion = sessionService.obtenerSesion(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Sesión no encontrada o inválida"));
 
@@ -117,7 +120,8 @@ public class VentaService {
         }
         // En perfil catedra exigimos que haya habido BLOQUEADO real
         if (exigirBloqueosEnConfirmacion && !sesion.isTuvoBloqueosExitosos()) {
-            throw new IllegalArgumentException("No se puede confirmar: no hay asientos BLOQUEADOS en la sesión");
+            log.error("Fallo en confirmación: la sesión {} no tiene bloqueos exitosos registrados", sessionId);
+            throw new IllegalArgumentException("No se puede confirmar la venta: los asientos no están bloqueados en el sistema de la cátedra. Por favor, vuelva a intentar la selección.");
         }
 
         String externalEventoId = sesion.getExternalEventoId();
@@ -145,7 +149,10 @@ public class VentaService {
         //    Si es nueva, seteamos todos los campos.
         if (venta.getId() != null) {
             if (compradorEmail != null && !compradorEmail.isBlank()) {
-                venta.setCompradorEmail(compradorEmail);
+                venta.setCompradorEmail(compradorEmail != null ? compradorEmail.trim() : null);
+            }
+            if (nombresOcupantes != null && !nombresOcupantes.isEmpty()) {
+                venta.setNombresOcupantes(new java.util.ArrayList<>(nombresOcupantes));
             }
         } else {
             venta.setEvento(evento);
@@ -155,7 +162,10 @@ public class VentaService {
             venta.setCantidad(cantidad);
             venta.setTotal(total);
             if (compradorEmail != null) {
-                venta.setCompradorEmail(compradorEmail);
+                venta.setCompradorEmail(compradorEmail != null ? compradorEmail.trim() : null);
+            }
+            if (nombresOcupantes != null) {
+                venta.setNombresOcupantes(new java.util.ArrayList<>(nombresOcupantes));
             }
             venta.setFechaHora(LocalDateTime.now());
             venta.setEstado(VentaEstado.PENDIENTE);

@@ -21,9 +21,11 @@ data class Asiento(
 @Serializable
  data class Venta(
      val id: Long,
-     val externalEventId: String,
-     val compradorEmail: String,
-     val estado: String,
-     val asientos: List<String>,
+     val externalEventId: String? = null,
+     val compradorEmail: String? = null,
+     val estado: String? = null,
+     val asientos: List<String> = emptyList(),
+     val ocupantes: List<String> = emptyList(),
+     val eventoNombre: String? = null,
      val evento: EventoResumido? = null
  )

@@ -85,6 +85,22 @@ docker compose up -d --force-recreate --no-deps proxy backend
 ```
 
 
+### 3.3) Cómo ver la base de datos local (Postgres)
+Podés acceder a la base de datos de dos formas:
+
+1. **Desde la terminal (usando psql dentro del contenedor):**
+   ```bash
+   docker exec -it tf25-postgres psql -U tf25 -d tf25
+   ```
+
+2. **Usando un cliente de base de datos (DBeaver, IntelliJ/DataGrip, pgAdmin):**
+   - **Host:** `localhost`
+   - **Puerto:** `5432`
+   - **Usuario:** `tf25`
+   - **Contraseña:** `tf25`
+   - **Base de datos:** `tf25`
+
+
 ## 4) Ejecutar el Mobile
 El módulo móvil está en `mobile/`. Es un proyecto Kotlin Multiplatform con Compose.
 

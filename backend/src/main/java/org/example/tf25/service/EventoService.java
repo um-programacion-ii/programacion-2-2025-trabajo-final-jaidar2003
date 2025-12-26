@@ -217,29 +217,31 @@ public class EventoService {
         );
 
         try {
-            // Llamar al proxy y evitar problemas de Content-Type (p.ej. application/octet-stream)
-            ResponseEntity<byte[]> resp = restClient.post()
+            // Llamar al proxy. Usamos ResponseEntity<String> para ser más tolerantes con el Content-Type
+            ResponseEntity<String> resp = restClient.post()
                     .uri("/api/endpoints/v1/bloquear-asientos")
                     .header("X-Session-Id", sessionState.getSessionId())
                     .body(peticion)
                     .retrieve()
-                    .toEntity(byte[].class);
+                    .toEntity(String.class);
 
             if (resp.getStatusCode().is2xxSuccessful()) {
-                byte[] bodyBytes = resp.getBody();
-                if (bodyBytes != null && bodyBytes.length > 0) {
+                String body = resp.getBody();
+                if (body != null && !body.isBlank()) {
                     try {
                         ObjectMapper om = new ObjectMapper()
                                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-                        RespuestaBloqueoAsientosDto parsed = om.readValue(bodyBytes, RespuestaBloqueoAsientosDto.class);
+                        RespuestaBloqueoAsientosDto parsed = om.readValue(body, RespuestaBloqueoAsientosDto.class);
                         if (parsed != null) {
                             return parsed;
                         }
                     } catch (Exception parseEx) {
-                        log.warn("Bloqueo: respuesta 2xx pero no se pudo parsear body ({}). Asumimos OK para asientos solicitados.", parseEx.getClass().getSimpleName());
+                        log.warn("Bloqueo: respuesta 2xx pero no se pudo parsear body como JSON. Content-Type: {}. Error: {}", 
+                                resp.getHeaders().getContentType(), parseEx.getMessage());
                     }
                 }
-                // Sin body o no parseable: asumimos OK para permitir continuar según política cátedra
+                // Si llegamos acá es 2xx pero sin body o no parseable.
+                // Asumimos OK para permitir continuar si la cátedra no devuelve detalle.
                 return new RespuestaBloqueoAsientosDto(
                         sessionState.getExternalEventoId(),
                         sessionState.getSessionId(),

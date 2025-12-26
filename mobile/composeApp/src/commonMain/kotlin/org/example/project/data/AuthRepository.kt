@@ -19,7 +19,8 @@ class AuthRepository(
 ) {
     suspend fun login(request: LoginRequest): Result<Unit> {
         return try {
-            val response = client.post("$SERVER_URL/api/authenticate") {
+            // Se agrega /api/v1 para coincidir con el AuthController del Backend
+            val response = client.post("$SERVER_URL/api/v1/authenticate") {
                 contentType(ContentType.Application.Json)
                 setBody(request)
             }
@@ -27,6 +28,7 @@ class AuthRepository(
             if (response.status.value == 200) {
                 val loginResponse = response.body<LoginResponse>()
                 tokenManager.token = loginResponse.idToken
+                tokenManager.email = request.username // Usamos username como referencia
                 Result.success(Unit)
             } else {
                 Result.failure(Exception("Login failed: ${response.status}"))
@@ -47,6 +49,7 @@ class AuthRepository(
             if (response.status.value == 200) {
                 val registerResponse = response.body<RegisterResponse>()
                 if (registerResponse.creado) {
+                    tokenManager.email = request.email
                     // Si el registro devuelve un token, lo guardamos para loguear automáticamente
                     if (registerResponse.token != null) {
                         tokenManager.token = registerResponse.token
@@ -66,9 +69,12 @@ class AuthRepository(
     
     fun logout() {
         tokenManager.token = null
+        tokenManager.email = null
     }
     
     fun isLoggedIn(): Boolean {
         return tokenManager.token != null
     }
+
+    fun getEmail(): String? = tokenManager.email
 }

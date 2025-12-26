@@ -21,8 +21,8 @@ public class RestClientConfig {
             @Value("${tf25.proxy.base-url:http://localhost:8081}") String proxyBaseUrl
     ) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(3_000);
-        factory.setReadTimeout(3_000);
+        factory.setConnectTimeout(10_000);
+        factory.setReadTimeout(10_000);
 
         return builder
                 .baseUrl(proxyBaseUrl)

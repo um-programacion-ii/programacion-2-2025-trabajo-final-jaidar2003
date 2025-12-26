@@ -9,6 +9,7 @@ import org.example.project.data.VentaRepository
 import org.example.project.network.createHttpClient
 import org.example.project.data.AuthRepository
 import org.example.project.data.local.TokenManager
+import org.example.project.ui.*
 
 expect val platformModule: Module
 
@@ -25,4 +26,11 @@ val commonModule = module {
     single { EventoRepository(get()) }
     single { VentaRepository(get()) }
     single { AuthRepository(get(), get()) }
+    
+    factory { LoginViewModel(get()) }
+    factory { RegisterViewModel(get()) }
+    factory { HomeViewModel(get(), get()) }
+    factory { HistoryViewModel(get(), get()) }
+    factory { EventDetailViewModel(get()) }
+    factory { ConfirmPurchaseViewModel(get(), get()) }
 }

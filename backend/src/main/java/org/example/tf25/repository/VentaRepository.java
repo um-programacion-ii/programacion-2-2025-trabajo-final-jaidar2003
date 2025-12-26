@@ -13,6 +13,8 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
 
     List<Venta> findByEvento_Id(Long eventoId);
 
+    List<Venta> findByCompradorEmailIgnoreCase(String email);
+
     @Override
     List<Venta> findAll();
 
