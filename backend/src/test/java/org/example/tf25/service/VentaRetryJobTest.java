@@ -1,8 +1,10 @@
-package org.example.tf25.service;
+package org.example.tf25.application.usecase;
 
-import org.example.tf25.domain.Venta;
-import org.example.tf25.domain.VentaEstado;
-import org.example.tf25.repository.VentaRepository;
+import org.example.tf25.domain.model.Venta;
+import org.example.tf25.domain.model.VentaEstado;
+import org.example.tf25.domain.repository.VentaRepository;
+import org.example.tf25.infrastructure.messaging.VentaKafkaProducer;
+import org.example.tf25.infrastructure.persistence.VentaRetryJob;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;

@@ -1,0 +1,12 @@
+package org.example.tf25.domain.repository;
+import org.example.tf25.domain.model.Evento;
+import org.example.tf25.domain.model.EventoEstado;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface EventoRepository extends JpaRepository<Evento, Long> {
+    Optional<Evento> findByExternalId(String externalId);
+    List<Evento> findByEstado(EventoEstado estado);
+}

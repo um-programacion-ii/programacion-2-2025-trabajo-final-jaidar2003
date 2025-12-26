@@ -66,10 +66,18 @@ fun App() {
     MaterialTheme {
         val authRepository: AuthRepository = koinInject()
 
-        // CAMBIO: Forzamos que la pantalla inicial sea siempre Login
-        val initialScreen = Screen.Login 
+        val initialScreen = Screen.Login
         var currentScreen by remember { mutableStateOf<Screen>(initialScreen) }
         val backstack = remember { mutableStateListOf<Screen>(initialScreen) }
+
+        // Asegurar que al inicio o reconexión se limpie el backstack y se vaya a Login
+        LaunchedEffect(Unit) {
+            if (currentScreen != Screen.Login) {
+                backstack.clear()
+                backstack.add(Screen.Login)
+                currentScreen = Screen.Login
+            }
+        }
 
         fun navigateTo(screen: Screen) {
             backstack.add(screen)
@@ -131,7 +139,7 @@ fun App() {
                     seats = screen.selectedSeats,
                     sessionId = screen.sessionId,
                     onBack = { goBack() },
-                    onSuccess = {
+                    onNavigateToHome = {
                         backstack.clear()
                         backstack.add(Screen.Home)
                         currentScreen = Screen.Home
@@ -373,10 +381,11 @@ fun ConfirmPurchaseScreen(
     seats: List<String>,
     sessionId: String,
     onBack: () -> Unit,
-    onSuccess: () -> Unit
+    onNavigateToHome: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     var showConfirmDialog by remember { mutableStateOf(false) }
+    var showSuccessDialog by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         Button(onClick = onBack) { Text("Volver") }
@@ -437,7 +446,9 @@ fun ConfirmPurchaseScreen(
                 confirmButton = {
                     TextButton(onClick = {
                         showConfirmDialog = false
-                        viewModel.confirmPurchase(scope, sessionId, seats, onSuccess)
+                        viewModel.confirmPurchase(scope, sessionId, seats, onSuccess = {
+                            showSuccessDialog = true
+                        })
                     }) {
                         Text("Confirmar")
                     }
@@ -445,6 +456,22 @@ fun ConfirmPurchaseScreen(
                 dismissButton = {
                     TextButton(onClick = { showConfirmDialog = false }) {
                         Text("Cancelar")
+                    }
+                }
+            )
+        }
+
+        if (showSuccessDialog) {
+            androidx.compose.material.AlertDialog(
+                onDismissRequest = { },
+                title = { Text("¡Venta Exitosa!") },
+                text = { Text("Tu compra se ha realizado correctamente. Puedes verla en la sección 'Mis Compras'.") },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showSuccessDialog = false
+                        onNavigateToHome()
+                    }) {
+                        Text("Aceptar")
                     }
                 }
             )

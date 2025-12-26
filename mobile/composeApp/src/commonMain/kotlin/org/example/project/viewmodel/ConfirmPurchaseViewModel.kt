@@ -23,6 +23,7 @@ class ConfirmPurchaseViewModel(
 
     fun confirmPurchase(scope: CoroutineScope, sessionId: String, seats: List<String>, onSuccess: () -> Unit) {
         showConfirmDialog = false
+        error = null
         loading = true
         scope.launch {
             try {
