@@ -17,6 +17,7 @@ import java.util.Map;
 @RequestMapping("/api/v1")
 public class AuthController {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuthController.class);
     private final RestClient restClient;
     private final String authUrl;
     private final String registerUrl;
@@ -24,6 +25,7 @@ public class AuthController {
     public AuthController(RestClient.Builder builder,
                           @Value("${tf25.catedra.auth-url}") String authUrl,
                           @Value("${tf25.catedra.register-url}") String registerUrl) {
+        // Usamos un builder limpio para evitar interceptores que propaguen tokens en el login/registro
         this.restClient = builder.build();
         this.authUrl = authUrl;
         this.registerUrl = registerUrl;
@@ -56,6 +58,7 @@ public class AuthController {
 
     @PostMapping("/authenticate")
     public ResponseEntity<?> authenticate(@RequestBody LoginRequest req) {
+        log.info("Intento de login para usuario: {}", req.username());
         try {
             // Llamamos a la cátedra y obtenemos la respuesta como un Map
             Map<String, Object> response = restClient.post()
@@ -66,30 +69,40 @@ public class AuthController {
 
             if (response != null && (response.containsKey("id_token") || response.containsKey("token"))) {
                 String token = (String) response.getOrDefault("id_token", response.get("token"));
+                log.info("Login exitoso para usuario: {}", req.username());
                 return ResponseEntity.ok(new LoginResponse(token));
             }
             
+            log.warn("Respuesta de autenticación inválida de la cátedra para usuario: {}", req.username());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Respuesta de autenticación inválida");
             
         } catch (RestClientResponseException e) {
+            log.error("Error de la cátedra al autenticar usuario {}: Status {}, Body {}", 
+                    req.username(), e.getStatusCode(), e.getResponseBodyAsString());
             return ResponseEntity.status(e.getStatusCode()).body(e.getResponseBodyAsString());
         } catch (Exception e) {
-            e.printStackTrace(); // Para ver el error real en los logs de docker
+            log.error("Error inesperado al conectar con la cátedra para login: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al conectar con el servicio de autenticación: " + e.getMessage());
         }
     }
 
     @PostMapping("/agregar_usuario")
     public ResponseEntity<?> register(@RequestBody RegisterRequest req) {
+        log.info("Intento de registro para usuario: {}, email: {}", req.username(), req.email());
         try {
-            return restClient.post()
+            ResponseEntity<RegisterResponse> response = restClient.post()
                     .uri(registerUrl)
                     .body(req)
                     .retrieve()
                     .toEntity(RegisterResponse.class);
+            log.info("Respuesta de registro para usuario {}: {}", req.username(), response.getStatusCode());
+            return response;
         } catch (RestClientResponseException e) {
+            log.error("Error de la cátedra al registrar usuario {}: Status {}, Body {}", 
+                    req.username(), e.getStatusCode(), e.getResponseBodyAsString());
             return ResponseEntity.status(e.getStatusCode()).body(e.getResponseBodyAsString());
         } catch (Exception e) {
+            log.error("Error inesperado al conectar con la cátedra para registro: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al conectar con el servicio de registro");
         }
     }

@@ -11,7 +11,9 @@ import java.util.List;
 public record VentaDto(
     Long id,
     Long eventoId,
-    List<String> asientosIds,
+    String eventoNombre,
+    List<String> asientos,
+    List<String> ocupantes,
     VentaEstado estado,
     String compradorEmail,
     Integer cantidad,
@@ -23,7 +25,9 @@ public record VentaDto(
         return new VentaDto(
             v.getId(),
             v.getEventoId(),
+            v.getEvento() != null ? v.getEvento().getNombre() : "Evento Desconocido",
             new ArrayList<>(v.getAsientosIds()),
+            new ArrayList<>(v.getNombresOcupantes()),
             v.getEstado(),
             v.getCompradorEmail(),
             v.getCantidad(),

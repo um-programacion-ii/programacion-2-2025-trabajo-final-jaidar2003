@@ -1,14 +1,14 @@
 logging:
   level:
     root: INFO
-    org.springframework.web: INFO
-    org.springframework.security: WARN
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
     org.hibernate.SQL: WARN
     org.hibernate.orm.jdbc.bind: WARN
     org.hibernate.type.descriptor.sql: WARN
-    org.apache.catalina: WARN
+    org.apache.catalina: INFO
     org.springframework.boot.autoconfigure: WARN
-    org.example.tf25: INFO
+    org.example.tf25: DEBUG
     http.access: INFO
 
 spring:

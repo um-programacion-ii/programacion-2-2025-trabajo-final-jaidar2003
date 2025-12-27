@@ -108,6 +108,8 @@ services:
       MANAGEMENT_HEALTH_KAFKA_ENABLED: "false"
       MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: "health,info,mappings"
       MANAGEMENT_ENDPOINT_MAPPINGS_ENABLED: "true"
+      SERVER_PORT: 8080
+      SERVER_ADDRESS: 0.0.0.0
     volumes:
       - ./backend/target/tf25-0.0.1-SNAPSHOT.jar:/app/app.jar:ro
-    command: ["java", "-jar", "/app/app.jar"]
+    command: ["java", "-Djava.net.preferIPv4Stack=true", "-jar", "/app/app.jar"]
