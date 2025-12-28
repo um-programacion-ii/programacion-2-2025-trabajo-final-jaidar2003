@@ -6,6 +6,8 @@ import org.slf4j.LoggerFactory;
 import org.example.tf25.domain.model.Evento;
 import org.example.tf25.domain.model.EventoEstado;
 import org.example.tf25.domain.repository.EventoRepository;
+import org.example.tf25.domain.repository.VentaRepository;
+import org.example.tf25.domain.model.VentaEstado;
 import org.example.tf25.application.dto.AsientoDto;
 import org.example.tf25.application.dto.PeticionBloqueoAsientosDto;
 import org.example.tf25.application.dto.RespuestaBloqueoAsientosDto;
@@ -32,13 +34,14 @@ public class EventoService {
 
     private final EventoRepository eventoRepository;
     private final RestClient restClient;
+    private final VentaRepository ventaRepository;
 
-    public EventoService(
+    public EventoService(VentaRepository ventaRepository, 
             EventoRepository eventoRepository,
             RestClient restClient
     ) {
         this.eventoRepository = eventoRepository;
-        this.restClient = restClient;
+        this.restClient = restClient; this.ventaRepository = ventaRepository;
     }
 
     @Transactional(readOnly = true)
@@ -122,7 +125,7 @@ public class EventoService {
                 );
                 evento.setFechaHora(fechaLocal);
             }
-            evento.setCupo(dto.getCupo() != null ? dto.getCupo() : 0);
+            evento.setCupo(dto.getCupo());
             evento.setPrecio(dto.getPrecio());
             evento.setEstado(EventoEstado.ACTIVO); // Si vino en la lista, está activo
 
@@ -183,7 +186,7 @@ public class EventoService {
                 );
                 evento.setFechaHora(fechaLocal);
             }
-            evento.setCupo(dto.getCupo() != null ? dto.getCupo() : 0);
+            evento.setCupo(dto.getCupo());
             evento.setPrecio(dto.getPrecio());
             evento.setEstado(EventoEstado.ACTIVO);
 
@@ -197,23 +200,8 @@ public class EventoService {
         }
     }
 
-    @Transactional(readOnly = true)
-    public List<AsientoDto> obtenerAsientos(String externalEventoId) {
-        try {
-            AsientoDto[] asientos = restClient.get()
-                    .uri("/api/endpoints/v1/asientos/{externalEventoId}", externalEventoId)
-                    .retrieve()
-                    .body(AsientoDto[].class);
 
-            if (asientos == null) {
-                return List.of();
-            }
-            return Arrays.asList(asientos);
-        } catch (Exception ex) {
-            throw new RuntimeException("Error obteniendo asientos desde proxy: " + ex.getClass().getSimpleName(), ex);
-        }
-    }
-
+    @Transactional(readOnly = true) public List<AsientoDto> obtenerAsientos(String externalEventoId) { try { AsientoDto[] asientos = restClient.get().uri("/api/endpoints/v1/asientos/{externalEventoId}", externalEventoId).retrieve().body(AsientoDto[].class); if (asientos == null) return List.of(); List<AsientoDto> lista = new java.util.ArrayList<>(java.util.Arrays.asList(asientos)); try { var ventas = ventaRepository.findByExternalEventoIdAndEstado(externalEventoId, VentaEstado.CONFIRMADA); java.util.Set<String> vendidos = new java.util.HashSet<>(); ventas.forEach(v -> vendidos.addAll(v.getAsientosIds())); for (int i = 0; i < lista.size(); i++) { if (vendidos.contains(lista.get(i).id())) { AsientoDto a = lista.get(i); lista.set(i, new AsientoDto(a.id(), a.fila(), a.columna(), "Vendido")); } } } catch (Exception e) { log.warn("Error sync: {}", e.getMessage()); } return lista; } catch (Exception ex) { throw new RuntimeException("Error: " + ex.getMessage(), ex); } }
     public RespuestaBloqueoAsientosDto bloquearAsientosParaSesion(
             SessionState sessionState,
             List<String> asientosIds

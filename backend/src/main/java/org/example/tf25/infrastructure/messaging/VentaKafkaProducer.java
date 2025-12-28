@@ -38,10 +38,11 @@ public class VentaKafkaProducer {
         JsonNode payload = JsonNodeFactory.instance.objectNode()
                 .put("ventaId", venta.getId())
                 .put("eventoId", eventoId)
+                .put("sessionId", venta.getSessionId())
+                .put("compradorEmail", venta.getCompradorEmail() != null ? venta.getCompradorEmail() : "")
                 .set("asientos", JsonNodeFactory.instance.arrayNode().addAll(
                         venta.getAsientosIds().stream().map(JsonNodeFactory.instance::textNode).toList()
                 ));
-
         log.info("Kafka SEND topic={} key={} payload={}", topic, key, payload);
 
         return kafkaTemplate.send(topic, key, payload)

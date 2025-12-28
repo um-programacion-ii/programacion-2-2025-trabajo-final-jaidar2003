@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.TextButton
+import androidx.compose.material.ButtonDefaults
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -57,6 +58,7 @@ sealed class Screen {
     object Register : Screen()
     object Home : Screen()
     object History : Screen()
+    object Profile : Screen()
     data class EventDetail(val event: EventoResumido) : Screen()
     data class ConfirmPurchase(val event: EventoResumido, val selectedSeats: List<String>, val sessionId: String) : Screen()
 }
@@ -115,6 +117,7 @@ fun App() {
                     viewModel = koinInject(),
                     onEventClick = { navigateTo(Screen.EventDetail(it)) },
                     onHistoryClick = { navigateTo(Screen.History) },
+                    onProfileClick = { navigateTo(Screen.Profile) },
                     onLogout = {
                         backstack.clear()
                         backstack.add(Screen.Login)
@@ -124,6 +127,15 @@ fun App() {
                 is Screen.History -> HistoryScreen(
                     viewModel = koinInject(),
                     onBack = { goBack() }
+                )
+                is Screen.Profile -> ProfileScreen(
+                    authRepository = koinInject(),
+                    onBack = { goBack() },
+                    onLogout = {
+                        backstack.clear()
+                        backstack.add(Screen.Login)
+                        currentScreen = Screen.Login
+                    }
                 )
                 is Screen.EventDetail -> EventDetailScreen(
                     viewModel = koinInject(),
@@ -245,16 +257,19 @@ fun RegisterScreen(viewModel: RegisterViewModel, onRegisterSuccess: () -> Unit, 
 }
 
 @Composable
-fun HomeScreen(viewModel: HomeViewModel, onEventClick: (EventoResumido) -> Unit, onHistoryClick: () -> Unit, onLogout: () -> Unit) {
+fun HomeScreen(viewModel: HomeViewModel, onEventClick: (EventoResumido) -> Unit, onHistoryClick: () -> Unit, onProfileClick: () -> Unit, onLogout: () -> Unit) {
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) {
         viewModel.loadEvents(scope)
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
             Button(onClick = onHistoryClick) {
                 Text("Mis Compras")
+            }
+            Button(onClick = onProfileClick) {
+                Text("Mi Perfil")
             }
             Button(onClick = {
                 viewModel.logout()
@@ -286,7 +301,7 @@ fun HomeScreen(viewModel: HomeViewModel, onEventClick: (EventoResumido) -> Unit,
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(event.nombre, style = MaterialTheme.typography.h6)
                         Text(event.descripcion, style = MaterialTheme.typography.body2)
-                        Text("Precio: ${event.precio}", style = MaterialTheme.typography.caption)
+                        Text("Precio: ${event.precio} | Cupo: ${event.cupo ?: "Ilimitado"}", style = MaterialTheme.typography.caption)
                     }
                 }
             }
@@ -302,15 +317,19 @@ fun EventDetailScreen(
     onConfirmSeats: (List<String>, String) -> Unit
 ) {
     val scope = rememberCoroutineScope()
-    LaunchedEffect(event.id) {
-        viewModel.loadAsientos(scope, event.id)
+    LaunchedEffect(event.externalId) {
+        event.externalId?.let { 
+            viewModel.loadAsientos(scope, it)
+        } ?: run {
+            viewModel.error = "Este evento no tiene un ID externo válido."
+        }
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Button(onClick = onBack) { Text("Volver") }
         Spacer(modifier = Modifier.height(16.dp))
         Text(event.nombre, style = MaterialTheme.typography.h4)
-        Text(event.descripcion)
+        Text("${event.descripcion}\nCupo: ${event.cupo ?: "Ilimitado"}")
         Spacer(modifier = Modifier.height(16.dp))
 
         if (viewModel.loading) {
@@ -353,7 +372,10 @@ fun EventDetailScreen(
                             }
                         ) {
                             Box(modifier = Modifier.padding(8.dp), contentAlignment = Alignment.Center) {
-                                Text(asiento.id, color = Color.White)
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("F:${asiento.fila}", color = Color.White, style = MaterialTheme.typography.caption)
+                                    Text("C:${asiento.columna}", color = Color.White, style = MaterialTheme.typography.caption)
+                                }
                             }
                         }
                     }
@@ -531,6 +553,39 @@ fun HistoryScreen(viewModel: HistoryViewModel, onBack: () -> Unit) {
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun ProfileScreen(authRepository: AuthRepository, onBack: () -> Unit, onLogout: () -> Unit) {
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+            Button(onClick = onBack) { Text("Volver") }
+        }
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        Text("Mi Perfil", style = MaterialTheme.typography.h4)
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Card(modifier = Modifier.fillMaxWidth(), elevation = 4.dp) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text("Usuario / Email:", style = MaterialTheme.typography.subtitle2, color = Color.Gray)
+                Text(authRepository.getEmail() ?: "No identificado", style = MaterialTheme.typography.h6)
+            }
+        }
+        
+        Spacer(modifier = Modifier.weight(1f))
+        
+        Button(
+            onClick = {
+                authRepository.logout()
+                onLogout()
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(backgroundColor = Color.Red, contentColor = Color.White)
+        ) {
+            Text("Cerrar Sesión")
         }
     }
 }

@@ -15,11 +15,11 @@ class EventDetailViewModel(private val ventaRepo: VentaRepository) {
     var loading by mutableStateOf(false)
     var error by mutableStateOf<String?>(null)
 
-    fun loadAsientos(scope: CoroutineScope, eventId: Long) {
+    fun loadAsientos(scope: CoroutineScope, externalId: String) {
         loading = true
         scope.launch {
             try {
-                val (ocupados, sesion) = ventaRepo.getAsientos(eventId)
+                val (ocupados, sesion) = ventaRepo.getAsientos(externalId)
 
                 // Mapear ocupados por id para lookup rápido
                 val ocupadosPorId = ocupados.associateBy { it.id }
@@ -52,6 +52,8 @@ class EventDetailViewModel(private val ventaRepo: VentaRepository) {
                         } else {
                             todos += Asiento(
                                 id = id,
+                                fila = fila,
+                                columna = col,
                                 estado = "LIBRE"
                             )
                         }

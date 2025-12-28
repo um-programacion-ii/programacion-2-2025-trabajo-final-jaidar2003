@@ -23,4 +23,6 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
     Optional<Venta> findFirstBySessionIdAndExternalEventoIdOrderByCreatedAtDesc(String sessionId, String externalEventoId);
 
     List<Venta> findByEstadoOrderByNextRetryAtAsc(VentaEstado estado, Pageable pageable);
+
+    List<Venta> findByExternalEventoIdAndEstado(String externalEventoId, VentaEstado estado);
 }

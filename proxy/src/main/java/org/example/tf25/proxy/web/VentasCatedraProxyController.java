@@ -151,6 +151,7 @@ public class VentasCatedraProxyController {
         body.set("asientos", arrOut);
 
         body.put("compradorEmail", compradorEmail == null ? "" : compradorEmail);
+        if (sessionId != null) body.put("sessionId", sessionId);
 
         log.info("Proxy→Catedra realizar-venta body={}", body);
 

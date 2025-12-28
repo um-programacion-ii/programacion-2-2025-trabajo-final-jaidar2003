@@ -62,7 +62,7 @@ public class VentaService {
         if (cantidad <= 0) {
             throw new IllegalArgumentException("La cantidad debe ser positiva");
         }
-        if (evento.getCupo() == null || evento.getCupo() < cantidad) {
+        if (evento.getCupo() != null && evento.getCupo() < cantidad) {
             throw new IllegalStateException("No hay cupo suficiente para el evento");
         }
 
@@ -71,7 +71,7 @@ public class VentaService {
         BigDecimal total = precio.multiply(BigDecimal.valueOf(cantidad));
 
         // Disminuir cupo
-        evento.setCupo(evento.getCupo() - cantidad);
+        if (evento.getCupo() != null) evento.setCupo(evento.getCupo() - cantidad);
         eventoRepository.save(evento);
 
         Venta v = new Venta();

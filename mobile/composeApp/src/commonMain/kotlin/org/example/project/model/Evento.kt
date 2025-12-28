@@ -9,12 +9,15 @@ data class EventoResumido(
     val nombre: String,
     val descripcion: String,
     val fechaHora: String? = null,
-    val precio: Double
+    val precio: Double,
+    val cupo: Int? = null
 )
 
 @Serializable
 data class Asiento(
     val id: String,
+    val fila: Int,
+    val columna: Int,
     val estado: String // "LIBRE", "OCUPADO", "RESERVADO"
 )
 

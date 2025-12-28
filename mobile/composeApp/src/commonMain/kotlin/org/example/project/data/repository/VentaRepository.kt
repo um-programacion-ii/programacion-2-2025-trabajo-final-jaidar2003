@@ -37,8 +37,8 @@ data class ConfirmarVentaResponse(
 
 class VentaRepository(private val client: HttpClient) {
 
-    suspend fun getAsientos(eventoId: Long): Pair<List<Asiento>, String> {
-        val response = client.get("$SERVER_URL/api/eventos/$eventoId/asientos")
+    suspend fun getAsientos(externalEventoId: String): Pair<List<Asiento>, String> {
+        val response = client.get("$SERVER_URL/api/eventos/$externalEventoId/asientos")
         if (response.status.value != 200) throw Exception("Error al cargar asientos: ${response.status}")
         val asientos = response.body<List<Asiento>>()
         val sessionId = response.headers["X-Session-Id"]
