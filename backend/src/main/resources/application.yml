@@ -3,6 +3,12 @@ spring:
     url: jdbc:postgresql://localhost:5432/tf25
     username: tf25
     password: tf25
+    hikari:
+      connection-timeout: 20000
+      maximum-pool-size: 10
+      max-lifetime: 300000
+      idle-timeout: 120000
+      leak-detection-threshold: 30000
   jpa:
     hibernate:
       ddl-auto: update

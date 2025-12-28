@@ -16,14 +16,19 @@ public class RestClientConfig {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(RestClientConfig.class);
 
     @Bean
-    public RestClient restClient(
-            RestClient.Builder builder,
-            @Value("${tf25.proxy.base-url:http://localhost:8081}") String proxyBaseUrl
-    ) {
+    public SimpleClientHttpRequestFactory clientHttpRequestFactory() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10_000);
         factory.setReadTimeout(10_000);
+        return factory;
+    }
 
+    @Bean
+    public RestClient restClient(
+            RestClient.Builder builder,
+            SimpleClientHttpRequestFactory factory,
+            @Value("${tf25.proxy.base-url:http://localhost:8081}") String proxyBaseUrl
+    ) {
         return builder
                 .baseUrl(proxyBaseUrl)
                 .requestFactory(factory)

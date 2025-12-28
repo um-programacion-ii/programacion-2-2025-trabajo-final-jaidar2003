@@ -100,7 +100,7 @@ public class BloqueoAsientosProxyService {
             return new RespuestaBloqueoAsientosRemotaDto(externalEventoId, sessionId, resultadosFinales);
         }
 
-        var body = new org.example.tf25.proxy.dto.catedra.PeticionBloqueoAsientosRemotaDto(eventoId, posiciones);
+        var body = new org.example.tf25.proxy.dto.catedra.PeticionBloqueoAsientosRemotaDto(eventoId, sessionId, posiciones);
 
         try {
             var respuestaCatedra = catedraRestClient.post()
@@ -111,6 +111,9 @@ public class BloqueoAsientosProxyService {
                     .body(org.example.tf25.proxy.dto.catedra.RespuestaBloqueoAsientosRemotaDto.class);
 
             if (respuestaCatedra != null) {
+                log.info("Proxy: respuesta de bloqueo de cátedra: resultado={}, descripcion={}, asientos={}", 
+                        respuestaCatedra.resultado(), respuestaCatedra.descripcion(), respuestaCatedra.asientos());
+                
                 var lista = respuestaCatedra.asientos();
                 boolean resultadoOk = respuestaCatedra.resultado();
                 String descripcion = respuestaCatedra.descripcion();
@@ -120,9 +123,15 @@ public class BloqueoAsientosProxyService {
                         String id = "r" + a.fila() + "c" + a.columna();
                         String estadoUpstreamRaw = a.estado();
                         String estadoUpstream = estadoUpstreamRaw != null ? estadoUpstreamRaw.trim() : null;
+                        
+                        log.debug("Proxy: procesando asiento {} con estado upstream: '{}'", id, estadoUpstream);
+                        
                         String estado = mapEstadoCatedraRobusto(estadoUpstream);
                         boolean esProblema = "CONFLICTO".equals(estado) || "INVALIDO".equals(estado) || "DESCONOCIDO".equals(estado);
+                        
+                        // Si la cátedra dice que no es OK a nivel global, propagamos su descripción como mensaje de error
                         String mensaje = (!resultadoOk && esProblema && descripcion != null && !descripcion.isBlank()) ? descripcion : null;
+                        
                         resultadosFinales.add(new ResultadoBloqueoAsientoRemotoDto(id, estado, mensaje));
                         if ("OK".equals(estado)) {
                             lockService.lockSeat(externalEventoId, sessionId, id);
@@ -215,12 +224,15 @@ public class BloqueoAsientosProxyService {
 
         // Confirmados por evidencia real
         if (e.contains("OCUP")) return "CONFLICTO";  // Ocupado
+        if (e.contains("VEND")) return "CONFLICTO";  // Vendido
         if (e.contains("NOVAL")) return "INVALIDO";  // NoValido
+        if (e.contains("INVAL")) return "INVALIDO";  // Invalido
 
         // Éxitos (cuando aparezcan)
         if (e.contains("BLOQ")) return "OK";         // Bloqueado
         if (e.contains("RESERV")) return "OK";       // Reservado
         if (e.equals("OK")) return "OK";
+        if (e.equals("SUCCESS")) return "OK";
 
         return "DESCONOCIDO";
     }

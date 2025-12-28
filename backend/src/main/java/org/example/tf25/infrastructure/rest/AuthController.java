@@ -1,9 +1,11 @@
 package org.example.tf25.infrastructure.rest;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,10 +25,11 @@ public class AuthController {
     private final String registerUrl;
 
     public AuthController(RestClient.Builder builder,
+                          SimpleClientHttpRequestFactory factory,
                           @Value("${tf25.catedra.auth-url}") String authUrl,
                           @Value("${tf25.catedra.register-url}") String registerUrl) {
-        // Usamos un builder limpio para evitar interceptores que propaguen tokens en el login/registro
-        this.restClient = builder.build();
+        // Usamos un builder limpio y el factory con timeouts para evitar cuelgues
+        this.restClient = builder.requestFactory(factory).build();
         this.authUrl = authUrl;
         this.registerUrl = registerUrl;
     }
@@ -34,7 +37,7 @@ public class AuthController {
     public record LoginRequest(String username, String password, Boolean rememberMe) {}
 
     public record RegisterRequest(
-            String username,
+            @JsonProperty("login") @JsonAlias("username") String username,
             String password,
             String firstName,
             String lastName,
@@ -60,12 +63,15 @@ public class AuthController {
     public ResponseEntity<?> authenticate(@RequestBody LoginRequest req) {
         log.info("Intento de login para usuario: {}", req.username());
         try {
+            log.debug("Llamando a la cátedra para login en: {}", authUrl);
             // Llamamos a la cátedra y obtenemos la respuesta como un Map
             Map<String, Object> response = restClient.post()
                     .uri(authUrl)
                     .body(req)
                     .retrieve()
                     .body(Map.class);
+
+            log.debug("Respuesta recibida de la cátedra para login: {}", response);
 
             if (response != null && (response.containsKey("id_token") || response.containsKey("token"))) {
                 String token = (String) response.getOrDefault("id_token", response.get("token"));
@@ -74,15 +80,13 @@ public class AuthController {
             }
             
             log.warn("Respuesta de autenticación inválida de la cátedra para usuario: {}", req.username());
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Respuesta de autenticación inválida");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Respuesta de autenticación inválida"));
             
         } catch (RestClientResponseException e) {
             log.error("Error de la cátedra al autenticar usuario {}: Status {}, Body {}", 
                     req.username(), e.getStatusCode(), e.getResponseBodyAsString());
-            return ResponseEntity.status(e.getStatusCode()).body(e.getResponseBodyAsString());
-        } catch (Exception e) {
-            log.error("Error inesperado al conectar con la cátedra para login: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al conectar con el servicio de autenticación: " + e.getMessage());
+            // Envolvemos el error en JSON para que el cliente mobile no falle al parsear
+            return ResponseEntity.status(e.getStatusCode()).body(Map.of("error", e.getResponseBodyAsString()));
         }
     }
 
@@ -90,20 +94,41 @@ public class AuthController {
     public ResponseEntity<?> register(@RequestBody RegisterRequest req) {
         log.info("Intento de registro para usuario: {}, email: {}", req.username(), req.email());
         try {
-            ResponseEntity<RegisterResponse> response = restClient.post()
+            log.debug("Llamando a la cátedra para registro en: {}", registerUrl);
+            
+            // Leemos como String primero para ser resilientes a errores de parsing
+            ResponseEntity<String> response = restClient.post()
                     .uri(registerUrl)
                     .body(req)
                     .retrieve()
-                    .toEntity(RegisterResponse.class);
-            log.info("Respuesta de registro para usuario {}: {}", req.username(), response.getStatusCode());
-            return response;
+                    .toEntity(String.class);
+            
+            log.info("Respuesta de registro recibida de la cátedra para usuario {}: Status {}", 
+                    req.username(), response.getStatusCode());
+            log.debug("Cuerpo de respuesta de registro: {}", response.getBody());
+            
+            boolean ok = response.getStatusCode().is2xxSuccessful();
+            return ResponseEntity.status(ok ? HttpStatus.OK : response.getStatusCode()).body(new RegisterResponse(
+                    ok,
+                    ok ? "Usuario creado con éxito" : response.getBody(),
+                    null
+            ));
+            
         } catch (RestClientResponseException e) {
             log.error("Error de la cátedra al registrar usuario {}: Status {}, Body {}", 
                     req.username(), e.getStatusCode(), e.getResponseBodyAsString());
-            return ResponseEntity.status(e.getStatusCode()).body(e.getResponseBodyAsString());
+            return ResponseEntity.status(e.getStatusCode()).body(new RegisterResponse(
+                    false,
+                    "Error de la cátedra: " + e.getResponseBodyAsString(),
+                    null
+            ));
         } catch (Exception e) {
-            log.error("Error inesperado al conectar con la cátedra para registro: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al conectar con el servicio de registro");
+            log.error("Error inesperado al registrar usuario {}: {}", req.username(), e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new RegisterResponse(
+                    false,
+                    "Error interno al procesar el registro: " + e.getMessage(),
+                    null
+            ));
         }
     }
 }

@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
-@Transactional
 public class EventoService {
     private static final Logger log = LoggerFactory.getLogger(EventoService.class);
 
@@ -57,10 +56,12 @@ public class EventoService {
         return eventoRepository.findById(id);
     }
 
+    @Transactional
     public Evento save(Evento evento) {
         return eventoRepository.save(evento);
     }
 
+    @Transactional
     public void delete(Long id) {
         eventoRepository.findById(id).ifPresent(evento -> {
             evento.setEstado(EventoEstado.ELIMINADO);
@@ -76,6 +77,7 @@ public class EventoService {
      */
     public int sincronizarEventos() {
         try {
+            log.debug("EventoService: solicitando lista de eventos al proxy...");
             EventoProxyDto[] remotos = restClient.get()
                     .uri("/api/endpoints/v1/eventos-resumidos")
                     .retrieve()
@@ -86,57 +88,62 @@ public class EventoService {
                 return 0;
             }
 
-            // 1. Guardar la lista de IDs externos que siguen vivos en la cátedra
-            List<String> idsRemotos = Arrays.stream(remotos)
-                    .filter(d -> d.getId() != null)
-                    .map(d -> d.getId().toString())
-                    .toList();
-
-            int count = 0;
-            for (EventoProxyDto dto : remotos) {
-                String externalId = dto.getId() != null ? dto.getId().toString() : null;
-
-                Evento evento = externalId != null
-                        ? eventoRepository.findByExternalId(externalId).orElseGet(Evento::new)
-                        : new Evento();
-
-                evento.setExternalId(externalId);
-                evento.setNombre(dto.getNombre());
-                evento.setDescripcion(dto.getDescripcion() != null ? dto.getDescripcion() : dto.getResumen());
-                if (dto.getFechaHora() != null) {
-                    LocalDateTime fechaLocal = LocalDateTime.ofInstant(
-                            dto.getFechaHora(),
-                            ZoneId.of("America/Argentina/Mendoza")
-                    );
-                    evento.setFechaHora(fechaLocal);
-                }
-                evento.setCupo(dto.getCupo() != null ? dto.getCupo() : 0);
-                evento.setPrecio(dto.getPrecio());
-                evento.setEstado(EventoEstado.ACTIVO); // Si vino en la lista, está activo
-
-                eventoRepository.save(evento);
-                count++;
-            }
-
-            // 2. "Soft Delete": Marcar como ELIMINADO lo que tenemos local pero no vino en remotos
-            List<Evento> locales = eventoRepository.findAll();
-            for (Evento local : locales) {
-                if (local.getExternalId() != null && !idsRemotos.contains(local.getExternalId())) {
-                    if (local.getEstado() != EventoEstado.ELIMINADO) {
-                        local.setEstado(EventoEstado.ELIMINADO);
-                        eventoRepository.save(local);
-                        log.info("Evento {} marcado como ELIMINADO porque ya no existe en la cátedra", local.getExternalId());
-                    }
-                }
-            }
-
-            log.info("Sincronización de eventos completada: {} eventos procesados", count);
-            return count;
+            return procesarSincronizacion(remotos);
 
         } catch (Exception ex) {
-            log.warn("No se pudo sincronizar eventos desde el proxy", ex);
+            log.warn("No se pudo sincronizar eventos desde el proxy: {}", ex.toString());
             return 0;
         }
+    }
+
+    @Transactional
+    protected int procesarSincronizacion(EventoProxyDto[] remotos) {
+        // 1. Guardar la lista de IDs externos que siguen vivos en la cátedra
+        List<String> idsRemotos = Arrays.stream(remotos)
+                .filter(d -> d.getId() != null)
+                .map(d -> d.getId().toString())
+                .toList();
+
+        int count = 0;
+        for (EventoProxyDto dto : remotos) {
+            String externalId = dto.getId() != null ? dto.getId().toString() : null;
+
+            Evento evento = externalId != null
+                    ? eventoRepository.findByExternalId(externalId).orElseGet(Evento::new)
+                    : new Evento();
+
+            evento.setExternalId(externalId);
+            evento.setNombre(dto.getNombre());
+            evento.setDescripcion(dto.getDescripcion() != null ? dto.getDescripcion() : dto.getResumen());
+            if (dto.getFechaHora() != null) {
+                LocalDateTime fechaLocal = LocalDateTime.ofInstant(
+                        dto.getFechaHora(),
+                        ZoneId.of("America/Argentina/Mendoza")
+                );
+                evento.setFechaHora(fechaLocal);
+            }
+            evento.setCupo(dto.getCupo() != null ? dto.getCupo() : 0);
+            evento.setPrecio(dto.getPrecio());
+            evento.setEstado(EventoEstado.ACTIVO); // Si vino en la lista, está activo
+
+            eventoRepository.save(evento);
+            count++;
+        }
+
+        // 2. "Soft Delete": Marcar como ELIMINADO lo que tenemos local pero no vino en remotos
+        List<Evento> locales = eventoRepository.findAll();
+        for (Evento local : locales) {
+            if (local.getExternalId() != null && !idsRemotos.contains(local.getExternalId())) {
+                if (local.getEstado() != EventoEstado.ELIMINADO) {
+                    local.setEstado(EventoEstado.ELIMINADO);
+                    eventoRepository.save(local);
+                    log.info("Evento {} marcado como ELIMINADO porque ya no existe en la cátedra", local.getExternalId());
+                }
+            }
+        }
+
+        log.info("Sincronización de eventos completada: {} eventos procesados", count);
+        return count;
     }
 
     /**

@@ -52,13 +52,23 @@ public class AsientosProxyService {
                         }
                         String estadoRemoto = a.estado();
                         String estadoLocal;
-                        if ("Bloqueado".equalsIgnoreCase(estadoRemoto)) {
+                        
+                        // Normalizamos estados comunes de la cátedra
+                        if (estadoRemoto == null) continue;
+                        String e = estadoRemoto.trim().toUpperCase();
+                        
+                        if (e.contains("BLOQ") || e.contains("RESERV")) {
                             estadoLocal = "Bloqueado";
-                        } else if ("Vendido".equalsIgnoreCase(estadoRemoto)) {
+                        } else if (e.contains("VEND") || e.contains("OCUP")) {
                             estadoLocal = "Vendido";
-                        } else {
+                        } else if (e.contains("LIBR") || e.contains("DISP")) {
+                            // Si está libre, no lo agregamos a la lista de ocupados
                             continue;
+                        } else {
+                            // Por las dudas, si es cualquier otra cosa que no sea LIBRE, lo marcamos como bloqueado
+                            estadoLocal = "Bloqueado";
                         }
+                        
                         String id = "r" + a.fila() + "c" + a.columna();
                         result.add(new AsientoRemotoDto(id, a.fila(), a.columna(), estadoLocal));
                         processedSeatIds.add(id);
