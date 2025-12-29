@@ -205,7 +205,30 @@ public class EventoService {
     }
 
 
-    @Transactional(readOnly = true) public List<AsientoDto> obtenerAsientos(String externalEventoId) { try { AsientoDto[] asientos = restClient.get().uri("/api/endpoints/v1/asientos/{externalEventoId}", externalEventoId).retrieve().body(AsientoDto[].class); if (asientos == null) return List.of(); List<AsientoDto> lista = new java.util.ArrayList<>(java.util.Arrays.asList(asientos)); try { var ventas = ventaRepository.findByExternalEventoIdAndEstado(externalEventoId, VentaEstado.CONFIRMADA); java.util.Set<String> vendidos = new java.util.HashSet<>(); ventas.forEach(v -> vendidos.addAll(v.getAsientosIds())); for (int i = 0; i < lista.size(); i++) { if (vendidos.contains(lista.get(i).id())) { AsientoDto a = lista.get(i); lista.set(i, new AsientoDto(a.id(), a.fila(), a.columna(), "Vendido")); } } } catch (Exception e) { log.warn("Error sync: {}", e.getMessage()); } return lista; } catch (Exception ex) { throw new RuntimeException("Error: " + ex.getMessage(), ex); } }
+    @Transactional(readOnly = true)
+    public List<AsientoDto> obtenerAsientos(String externalEventoId) {
+        try {
+            AsientoDto[] asientos = restClient.get().uri("/api/endpoints/v1/asientos/{externalEventoId}", externalEventoId).retrieve().body(AsientoDto[].class);
+            if (asientos == null) return List.of();
+            List<AsientoDto> lista = new java.util.ArrayList<>(java.util.Arrays.asList(asientos));
+            try {
+                var ventas = ventaRepository.findByExternalEventoIdAndEstado(externalEventoId, VentaEstado.CONFIRMADA);
+                java.util.Set<String> vendidos = new java.util.HashSet<>();
+                ventas.forEach(v -> vendidos.addAll(v.getAsientosIds()));
+                for (int i = 0; i < lista.size(); i++) {
+                    if (vendidos.contains(lista.get(i).id())) {
+                        AsientoDto a = lista.get(i);
+                        lista.set(i, new AsientoDto(a.id(), a.fila(), a.columna(), "Vendido"));
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Error sync: {}", e.getMessage());
+            }
+            return lista;
+        } catch (Exception ex) {
+            throw new RuntimeException("Error: " + ex.getMessage(), ex);
+        }
+    }
     public RespuestaBloqueoAsientosDto bloquearAsientosParaSesion(
             SessionState sessionState,
             List<String> asientosIds

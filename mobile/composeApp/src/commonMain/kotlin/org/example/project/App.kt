@@ -224,8 +224,10 @@ fun RegisterScreen(viewModel: RegisterViewModel, onRegisterSuccess: () -> Unit, 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally, 
         modifier = Modifier
+            .fillMaxSize()
             .padding(16.dp)
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.Center
     ) {
         Text("Crear Cuenta", style = MaterialTheme.typography.h4)
         Spacer(modifier = Modifier.height(16.dp))
