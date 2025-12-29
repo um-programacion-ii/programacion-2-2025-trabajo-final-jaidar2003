@@ -26,22 +26,40 @@ class EventDetailViewModel(private val ventaRepo: VentaRepository) {
                 // Mapear ocupados por id para lookup rápido
                 val ocupadosPorId = ocupados.associateBy { it.id }
 
-                // Determinar tamaño de la sala (priorizar datos detectados de los asientos)
-                val regex = Regex("""r(\d+)c(\d+)""")
-                var maxFila = filas ?: 0
-                var maxCol = columnas ?: 0
-                // Escanear TODOS los asientos recibidos para encontrar el perímetro real
-                for (a in ocupados) {
-                    if (a.fila > maxFila) maxFila = a.fila
-                    if (a.columna > maxCol) maxCol = a.columna
+                // Determinar tamaño de la sala
+                // - Si el endpoint provee filas/columnas (>0), usamos EXACTAMENTE esos valores.
+                // - Si no, inferimos el tamaño máximo a partir de los asientos recibidos.
+                val rowsHint = filas ?: 0
+                val colsHint = columnas ?: 0
+                var targetFilas: Int
+                var targetColumnas: Int
+
+                if (rowsHint > 0 && colsHint > 0) {
+                    targetFilas = rowsHint
+                    targetColumnas = colsHint
+                } else {
+                    var maxFilaDetectada = 0
+                    var maxColDetectada = 0
+                    for (a in ocupados) {
+                        if (a.fila > maxFilaDetectada) maxFilaDetectada = a.fila
+                        if (a.columna > maxColDetectada) maxColDetectada = a.columna
+                    }
+                    // Si no hay datos -> no dibujar grilla
+                    if (maxFilaDetectada <= 0 && maxColDetectada <= 0 && ocupados.isEmpty()) {
+                        gridFilas = 0
+                        gridColumnas = 0
+                        asientos = emptyList()
+                        sessionId = sesion
+                        return@launch
+                    }
+                    targetFilas = maxFilaDetectada
+                    targetColumnas = maxColDetectada
                 }
-                if (maxFila <= 0) maxFila = 10
-                if (maxCol <= 0) maxCol = 10
 
                 // Reconstruir grilla completa: lo que no venga = LIBRE
                 val todos = mutableListOf<Asiento>()
-                for (fila in 1..maxFila) {
-                    for (col in 1..maxCol) {
+                for (fila in 1..targetFilas) {
+                    for (col in 1..targetColumnas) {
                         val id = "r${fila}c${col}"
                         val existente = ocupadosPorId[id]
                         if (existente != null) {
@@ -57,8 +75,8 @@ class EventDetailViewModel(private val ventaRepo: VentaRepository) {
                     }
                 }
 
-                gridFilas = maxFila
-                gridColumnas = maxCol
+                gridFilas = targetFilas
+                gridColumnas = targetColumnas
                 asientos = todos
                 sessionId = sesion
             } catch (e: Exception) {

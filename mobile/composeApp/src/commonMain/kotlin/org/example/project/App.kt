@@ -353,27 +353,34 @@ fun EventDetailScreen(
                 LegendItem("Vendido", Color.Red)
             }
 
-            // Mapa con encabezados completos de filas y columnas
-            Box(modifier = Modifier.weight(1f)) {
-                val hScroll = rememberScrollState()
-                Column(modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(hScroll)
-                ) {
-                    SeatGrid(
-                        gridFilas = viewModel.gridFilas,
-                        gridColumnas = viewModel.gridColumnas,
-                        asientos = viewModel.asientos,
-                        selected = viewModel.selectedSeats,
-                        onToggle = { id -> viewModel.toggleSeat(id) }
-                    )
+            // Mapa con encabezados completos de filas y columnas (si hay grilla disponible)
+            if (viewModel.gridFilas > 0 && viewModel.gridColumnas > 0) {
+                Box(modifier = Modifier.weight(1f)) {
+                    val hScroll = rememberScrollState()
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(hScroll)
+                    ) {
+                        SeatGrid(
+                            gridFilas = viewModel.gridFilas,
+                            gridColumnas = viewModel.gridColumnas,
+                            asientos = viewModel.asientos,
+                            selected = viewModel.selectedSeats,
+                            onToggle = { id -> viewModel.toggleSeat(id) }
+                        )
+                    }
+                }
+            } else {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    Text("Este evento no tiene mapa de asientos disponible.")
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
             Button(
                 modifier = Modifier.fillMaxWidth(),
-                enabled = viewModel.selectedSeats.isNotEmpty() && viewModel.sessionId != null,
+                enabled = viewModel.selectedSeats.isNotEmpty() && viewModel.sessionId != null && viewModel.gridFilas > 0 && viewModel.gridColumnas > 0,
                 onClick = {
                     viewModel.confirmSelectedSeats(scope, event.externalId ?: "", onConfirmSeats)
                 }
