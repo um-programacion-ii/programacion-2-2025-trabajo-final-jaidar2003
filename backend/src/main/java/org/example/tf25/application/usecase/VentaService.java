@@ -191,6 +191,7 @@ public class VentaService {
             log.info("Venta {}: notificando a cátedra vía HTTP Proxy (intento {})...", venta.getId(), intento);
             
             var payload = JsonNodeFactory.instance.objectNode()
+                    .put("ventaId", venta.getId())
                     .put("externalEventoId", externalEventoId)
                     .put("sessionId", sessionId)
                     .put("compradorEmail", venta.getCompradorEmail() != null ? venta.getCompradorEmail() : "");

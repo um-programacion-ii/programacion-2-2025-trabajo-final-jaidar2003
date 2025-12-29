@@ -67,6 +67,7 @@ public class AuthController {
             // Llamamos a la cátedra y obtenemos la respuesta como un Map
             Map<String, Object> response = restClient.post()
                     .uri(authUrl)
+                    .header("Connection", "close")
                     .body(req)
                     .retrieve()
                     .body(Map.class);
@@ -99,6 +100,7 @@ public class AuthController {
             // Leemos como String primero para ser resilientes a errores de parsing
             ResponseEntity<String> response = restClient.post()
                     .uri(registerUrl)
+                    .header("Connection", "close")
                     .body(req)
                     .retrieve()
                     .toEntity(String.class);

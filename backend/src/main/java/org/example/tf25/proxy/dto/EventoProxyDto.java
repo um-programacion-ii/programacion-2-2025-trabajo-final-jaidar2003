@@ -29,6 +29,8 @@ public class EventoProxyDto {
     @JsonAlias({"precioEntrada", "precio"})
     private BigDecimal precio;
 
+    private Integer filaAsientos;
+    private Integer columnAsientos;
     // Nombre igual en ambos, pero dejamos alias por seguridad
     @JsonAlias({"eventoTipo"})
     private EventoTipoProxyDto eventoTipo;
@@ -98,4 +100,8 @@ public class EventoProxyDto {
     public void setEventoTipo(EventoTipoProxyDto eventoTipo) {
         this.eventoTipo = eventoTipo;
     }
+    public Integer getFilaAsientos() { return filaAsientos; }
+    public void setFilaAsientos(Integer filaAsientos) { this.filaAsientos = filaAsientos; }
+    public Integer getColumnAsientos() { return columnAsientos; }
+    public void setColumnAsientos(Integer columnAsientos) { this.columnAsientos = columnAsientos; }
 }

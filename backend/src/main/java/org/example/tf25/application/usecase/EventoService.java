@@ -126,6 +126,8 @@ public class EventoService {
                 evento.setFechaHora(fechaLocal);
             }
             evento.setCupo(dto.getCupo());
+            evento.setFilaAsientos(dto.getFilaAsientos());
+            evento.setColumnAsientos(dto.getColumnAsientos());
             evento.setPrecio(dto.getPrecio());
             evento.setEstado(EventoEstado.ACTIVO); // Si vino en la lista, está activo
 
@@ -187,6 +189,8 @@ public class EventoService {
                 evento.setFechaHora(fechaLocal);
             }
             evento.setCupo(dto.getCupo());
+            evento.setFilaAsientos(dto.getFilaAsientos());
+            evento.setColumnAsientos(dto.getColumnAsientos());
             evento.setPrecio(dto.getPrecio());
             evento.setEstado(EventoEstado.ACTIVO);
 

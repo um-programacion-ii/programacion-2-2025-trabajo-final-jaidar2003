@@ -25,6 +25,8 @@ public class Evento {
 
     private BigDecimal precio;
 
+    private Integer filaAsientos;
+    private Integer columnAsientos;
     @Column(name = "external_id", unique = true)
     private String externalId;
 
@@ -99,4 +101,8 @@ public class Evento {
     public void setVentas(List<Venta> ventas) {
         this.ventas = ventas;
     }
+    public Integer getFilaAsientos() { return filaAsientos; }
+    public void setFilaAsientos(Integer filaAsientos) { this.filaAsientos = filaAsientos; }
+    public Integer getColumnAsientos() { return columnAsientos; }
+    public void setColumnAsientos(Integer columnAsientos) { this.columnAsientos = columnAsientos; }
 }

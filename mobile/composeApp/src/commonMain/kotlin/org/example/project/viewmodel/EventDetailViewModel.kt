@@ -14,8 +14,10 @@ class EventDetailViewModel(private val ventaRepo: VentaRepository) {
     var selectedSeats by mutableStateOf(setOf<String>())
     var loading by mutableStateOf(false)
     var error by mutableStateOf<String?>(null)
+    var gridFilas by mutableStateOf(10)
+    var gridColumnas by mutableStateOf(10)
 
-    fun loadAsientos(scope: CoroutineScope, externalId: String) {
+    fun loadAsientos(scope: CoroutineScope, externalId: String, filas: Int? = null, columnas: Int? = null) {
         loading = true
         scope.launch {
             try {
@@ -24,22 +26,17 @@ class EventDetailViewModel(private val ventaRepo: VentaRepository) {
                 // Mapear ocupados por id para lookup rápido
                 val ocupadosPorId = ocupados.associateBy { it.id }
 
-                // Inferir tamaño de la sala desde los ids con formato r{fila}c{col}
+                // Determinar tamaño de la sala (priorizar datos detectados de los asientos)
                 val regex = Regex("""r(\d+)c(\d+)""")
-                var maxFila = 0
-                var maxCol = 0
+                var maxFila = filas ?: 0
+                var maxCol = columnas ?: 0
+                // Escanear TODOS los asientos recibidos para encontrar el perímetro real
                 for (a in ocupados) {
-                    val m = regex.matchEntire(a.id)
-                    if (m != null) {
-                        val f = m.groupValues[1].toInt()
-                        val c = m.groupValues[2].toInt()
-                        if (f > maxFila) maxFila = f
-                        if (c > maxCol) maxCol = c
-                    }
+                    if (a.fila > maxFila) maxFila = a.fila
+                    if (a.columna > maxCol) maxCol = a.columna
                 }
-                // Valores mínimos razonables si no hay datos suficientes
-                if (maxFila < 9) maxFila = 9
-                if (maxCol < 6) maxCol = 6
+                if (maxFila <= 0) maxFila = 10
+                if (maxCol <= 0) maxCol = 10
 
                 // Reconstruir grilla completa: lo que no venga = LIBRE
                 val todos = mutableListOf<Asiento>()
@@ -60,6 +57,8 @@ class EventDetailViewModel(private val ventaRepo: VentaRepository) {
                     }
                 }
 
+                gridFilas = maxFila
+                gridColumnas = maxCol
                 asientos = todos
                 sessionId = sesion
             } catch (e: Exception) {

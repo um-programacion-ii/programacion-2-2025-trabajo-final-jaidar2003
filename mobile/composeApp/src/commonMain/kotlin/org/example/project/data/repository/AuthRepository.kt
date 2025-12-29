@@ -50,6 +50,10 @@ class AuthRepository(
                 val registerResponse = response.body<RegisterResponse>()
                 if (registerResponse.creado) {
                     tokenManager.email = request.email
+                    tokenManager.firstName = request.firstName
+                    tokenManager.lastName = request.lastName
+                    tokenManager.nombreAlumno = request.nombreAlumno
+                    tokenManager.proyecto = request.descripcionProyecto
                     // Si el registro devuelve un token, lo guardamos para loguear automáticamente
                     if (registerResponse.token != null) {
                         tokenManager.token = registerResponse.token
@@ -70,11 +74,18 @@ class AuthRepository(
     fun logout() {
         tokenManager.token = null
         tokenManager.email = null
+        tokenManager.firstName = null
+        tokenManager.lastName = null
+
+        tokenManager.nombreAlumno = null
+        tokenManager.proyecto = null
     }
     
-    fun isLoggedIn(): Boolean {
-        return tokenManager.token != null
-    }
+    fun isLoggedIn(): Boolean = tokenManager.token != null
 
+    fun getFirstName(): String? = tokenManager.firstName
+    fun getLastName(): String? = tokenManager.lastName
+    fun getNombreAlumno(): String? = tokenManager.nombreAlumno
+    fun getProyecto(): String? = tokenManager.proyecto
     fun getEmail(): String? = tokenManager.email
 }

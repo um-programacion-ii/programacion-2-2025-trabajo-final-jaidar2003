@@ -53,11 +53,13 @@ public class VentasCatedraProxyController {
 
         // 1) Traducir payload backend -> cátedra
         String externalEventoId = ventaRequest.hasNonNull("externalEventoId") ? ventaRequest.get("externalEventoId").asText() : null;
+        Long localVentaId = ventaRequest.hasNonNull("ventaId") ? ventaRequest.get("ventaId").asLong() : null;
 
         String sessionIdBody = ventaRequest.hasNonNull("sessionId") ? ventaRequest.get("sessionId").asText() : null;
-        String sessionId = (sessionIdBody != null && !sessionIdBody.isBlank())
-                ? sessionIdBody
-                : (sessionIdHeader != null && !sessionIdHeader.isBlank() ? sessionIdHeader : null);
+        // Unificar: preferimos siempre el header X-Session-Id; si no viene, usamos el del body
+        String sessionId = (sessionIdHeader != null && !sessionIdHeader.isBlank())
+                ? sessionIdHeader
+                : (sessionIdBody != null && !sessionIdBody.isBlank() ? sessionIdBody : null);
 
         // Modo dev/flag: forzar éxito sin llamar a la cátedra
         if (forceSuccess) {
@@ -84,7 +86,7 @@ public class VentasCatedraProxyController {
         var f = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
 
         // 2) Parsear asientos (acepta asientosIds o asientos)
-        java.util.List<com.fasterxml.jackson.databind.JsonNode> posiciones = new java.util.ArrayList<>();
+        java.util.List<com.fasterxml.jackson.databind.JsonNode> posiciones = new java.util.ArrayList<>(); java.util.List<String> rawIds = new java.util.ArrayList<>();
         JsonNode arr = null;
         if (ventaRequest.has("asientosIds") && ventaRequest.get("asientosIds").isArray()) {
             arr = ventaRequest.get("asientosIds");
@@ -98,7 +100,7 @@ public class VentasCatedraProxyController {
                 if (n == null || n.isNull()) continue;
 
                 if (n.isTextual()) {
-                    String id = n.asText();
+                    String id = n.asText(); rawIds.add(id);
                     var m = p.matcher(id == null ? "" : id.trim());
                     if (m.matches()) {
                         int fila = Integer.parseInt(m.group(1));
@@ -110,12 +112,15 @@ public class VentasCatedraProxyController {
                     }
                 } else if (n.isObject()) {
                     if (n.has("fila") && n.has("columna")) {
+                        int fila = n.get("fila").asInt();
+                        int columna = n.get("columna").asInt();
+                        rawIds.add("r" + fila + "c" + columna);
                         var pos = f.objectNode();
-                        pos.put("fila", n.get("fila").asInt());
-                        pos.put("columna", n.get("columna").asInt());
+                        pos.put("fila", fila);
+                        pos.put("columna", columna);
                         posiciones.add(pos);
                     } else if (n.has("asientoId") && n.get("asientoId").isTextual()) {
-                        String id = n.get("asientoId").asText();
+                        String id = n.get("asientoId").asText(); rawIds.add(id);
                         var m = p.matcher(id == null ? "" : id.trim());
                         if (m.matches()) {
                             int fila = Integer.parseInt(m.group(1));
@@ -142,16 +147,14 @@ public class VentasCatedraProxyController {
             return ResponseEntity.ok(err);
         }
 
-        // 3) Armar body upstream
+        // 3) Armar body upstream (alineado con el contrato de cátedra similar a bloqueo-asientos)
         var body = f.objectNode();
         body.put("eventoId", eventoId);
 
-        var arrOut = f.arrayNode();
-        for (JsonNode pos : posiciones) arrOut.add(pos);
-        body.set("asientos", arrOut);
-
-        body.put("compradorEmail", compradorEmail == null ? "" : compradorEmail);
-        if (sessionId != null) body.put("sessionId", sessionId);
+        // asientos como objetos {fila,columna}
+        var arrPos = f.arrayNode();
+        for (JsonNode pos : posiciones) arrPos.add(pos);
+        body.set("asientos", arrPos);
 
         log.info("Proxy→Catedra realizar-venta body={}", body);
 

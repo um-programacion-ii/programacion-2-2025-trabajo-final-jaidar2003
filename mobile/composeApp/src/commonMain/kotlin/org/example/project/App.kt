@@ -21,6 +21,7 @@ import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Text
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.TextButton
 import androidx.compose.material.ButtonDefaults
@@ -42,6 +43,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import org.example.project.data.AuthRepository
 import org.example.project.data.EventoRepository
@@ -319,7 +321,7 @@ fun EventDetailScreen(
     val scope = rememberCoroutineScope()
     LaunchedEffect(event.externalId) {
         event.externalId?.let { 
-            viewModel.loadAsientos(scope, it)
+            viewModel.loadAsientos(scope, it, event.filaAsientos, event.columnAsientos)
         } ?: run {
             viewModel.error = "Este evento no tiene un ID externo válido."
         }
@@ -351,34 +353,20 @@ fun EventDetailScreen(
                 LegendItem("Vendido", Color.Red)
             }
 
+            // Mapa con encabezados completos de filas y columnas
             Box(modifier = Modifier.weight(1f)) {
-                LazyVerticalGrid(columns = GridCells.Adaptive(80.dp)) {
-                    items(viewModel.asientos) { asiento ->
-                        val isSelected = viewModel.selectedSeats.contains(asiento.id)
-                        val isOccupied = asiento.estado == "Vendido" || asiento.estado == "Bloqueado"
-
-                        Card(
-                            modifier = Modifier
-                                .padding(4.dp)
-                                .clickable(enabled = asiento.estado == "LIBRE") {
-                                    viewModel.toggleSeat(asiento.id)
-                                },
-                            backgroundColor = when {
-                                isSelected -> Color(0xFF2196F3) // Azul (Seleccionado)
-                                asiento.estado == "Vendido" -> Color.Red // Rojo (Vendido)
-                                asiento.estado == "Bloqueado" -> Color(0xFFFFC107) // Amarillo (Bloqueado)
-                                asiento.estado == "LIBRE" -> Color(0xFF4CAF50) // Verde (Libre)
-                                else -> Color.Gray
-                            }
-                        ) {
-                            Box(modifier = Modifier.padding(8.dp), contentAlignment = Alignment.Center) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("F:${asiento.fila}", color = Color.White, style = MaterialTheme.typography.caption)
-                                    Text("C:${asiento.columna}", color = Color.White, style = MaterialTheme.typography.caption)
-                                }
-                            }
-                        }
-                    }
+                val hScroll = rememberScrollState()
+                Column(modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(hScroll)
+                ) {
+                    SeatGrid(
+                        gridFilas = viewModel.gridFilas,
+                        gridColumnas = viewModel.gridColumnas,
+                        asientos = viewModel.asientos,
+                        selected = viewModel.selectedSeats,
+                        onToggle = { id -> viewModel.toggleSeat(id) }
+                    )
                 }
             }
 
@@ -570,8 +558,11 @@ fun ProfileScreen(authRepository: AuthRepository, onBack: () -> Unit, onLogout: 
         
         Card(modifier = Modifier.fillMaxWidth(), elevation = 4.dp) {
             Column(modifier = Modifier.padding(24.dp)) {
-                Text("Usuario / Email:", style = MaterialTheme.typography.subtitle2, color = Color.Gray)
-                Text(authRepository.getEmail() ?: "No identificado", style = MaterialTheme.typography.h6)
+                ProfileItem("Usuario / Email", authRepository.getEmail() ?: "-")
+                ProfileItem("Nombre", authRepository.getFirstName() ?: "-")
+                ProfileItem("Apellido", authRepository.getLastName() ?: "-")
+                ProfileItem("Alumno", authRepository.getNombreAlumno() ?: "-")
+                ProfileItem("Proyecto", authRepository.getProyecto() ?: "-")
             }
         }
         
@@ -586,6 +577,79 @@ fun ProfileScreen(authRepository: AuthRepository, onBack: () -> Unit, onLogout: 
             colors = ButtonDefaults.buttonColors(backgroundColor = Color.Red, contentColor = Color.White)
         ) {
             Text("Cerrar Sesión")
+        }
+    }
+}
+
+@Composable
+fun ProfileItem(label: String, value: String) {
+    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+        Text(label, style = MaterialTheme.typography.subtitle2, color = Color.Gray)
+        Text(value, style = MaterialTheme.typography.h6)
+    }
+}
+
+@Composable
+fun SeatGrid(
+    gridFilas: Int,
+    gridColumnas: Int,
+    asientos: List<Asiento>,
+    selected: Set<String>,
+    onToggle: (String) -> Unit
+) {
+    val cellSize = 32.dp
+    val asientoPorId = remember(asientos) { asientos.associateBy { it.id } }
+
+    // Encabezado de columnas
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.size(cellSize), contentAlignment = Alignment.Center) {
+            Text("Fila/Col", style = MaterialTheme.typography.caption, color = Color.Gray, fontSize = 10.sp)
+        }
+        for (c in 1..gridColumnas) {
+            Box(modifier = Modifier.size(cellSize), contentAlignment = Alignment.Center) {
+                Text("Col $c", style = MaterialTheme.typography.caption)
+            }
+        }
+    }
+
+    // Filas con etiqueta + celdas
+    for (f in 1..gridFilas) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // Etiqueta de fila
+            Box(modifier = Modifier.size(cellSize), contentAlignment = Alignment.Center) {
+                Text("Fila $f", style = MaterialTheme.typography.caption)
+            }
+            for (c in 1..gridColumnas) {
+                val id = "r${f}c${c}"
+                val asiento = asientoPorId[id]
+                val estado = asiento?.estado ?: "LIBRE"
+                val isSelected = selected.contains(id)
+                val enabled = estado.equals("LIBRE", ignoreCase = true)
+                val background = when {
+                    isSelected -> Color(0xFF2196F3)
+                    estado.equals("Vendido", true) || estado.equals("OCUPADO", true) -> Color.Red
+                    estado.equals("Bloqueado", true) || estado.equals("RESERVADO", true) -> Color(0xFFFFC107)
+                    estado.equals("LIBRE", true) -> Color(0xFF4CAF50)
+                    else -> Color.Gray
+                }
+
+                Card(
+                    modifier = Modifier
+                        .size(cellSize)
+                        .padding(1.dp)
+                        .clickable(enabled = enabled) { onToggle(id) },
+                    backgroundColor = background,
+                    elevation = 2.dp
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        if (asiento != null) {
+                            Text("${asiento.columna}", color = Color.White, fontSize = 10.sp)
+                        } else {
+                            Text("$c", color = Color.White, fontSize = 10.sp)
+                        }
+                    }
+                }
+            }
         }
     }
 }

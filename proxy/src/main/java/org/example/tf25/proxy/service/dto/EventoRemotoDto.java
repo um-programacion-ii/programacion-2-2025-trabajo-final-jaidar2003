@@ -32,6 +32,8 @@ public class EventoRemotoDto {
     // La cátedra envía un objeto "eventoTipo" con nombre y descripcion
     @JsonProperty("eventoTipo")
     private EventoTipoRemotoDto eventoTipo;
+    private Integer filaAsientos;
+    private Integer columnAsientos;
 
     public EventoRemotoDto() {
     }
@@ -110,4 +112,8 @@ public class EventoRemotoDto {
     public void setEventoTipo(EventoTipoRemotoDto eventoTipo) {
         this.eventoTipo = eventoTipo;
     }
+    public Integer getFilaAsientos() { return filaAsientos; }
+    public void setFilaAsientos(Integer filaAsientos) { this.filaAsientos = filaAsientos; }
+    public Integer getColumnAsientos() { return columnAsientos; }
+    public void setColumnAsientos(Integer columnAsientos) { this.columnAsientos = columnAsientos; }
 }

@@ -10,7 +10,9 @@ data class EventoResumido(
     val descripcion: String,
     val fechaHora: String? = null,
     val precio: Double,
-    val cupo: Int? = null
+    val cupo: Int? = null,
+    val filaAsientos: Int? = null,
+    val columnAsientos: Int? = null
 )
 
 @Serializable
