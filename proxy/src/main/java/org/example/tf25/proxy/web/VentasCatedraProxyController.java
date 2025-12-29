@@ -147,14 +147,49 @@ public class VentasCatedraProxyController {
             return ResponseEntity.ok(err);
         }
 
-        // 3) Armar body upstream (alineado con el contrato de cátedra similar a bloqueo-asientos)
+        // 3) Armar body upstream (alineado con el contrato de cátedra similar a implementación dino)
         var body = f.objectNode();
         body.put("eventoId", eventoId);
 
-        // asientos como objetos {fila,columna}
-        var arrPos = f.arrayNode();
-        for (JsonNode pos : posiciones) arrPos.add(pos);
-        body.set("asientos", arrPos);
+        // nombresOcupantes opcional desde el backend
+        java.util.List<String> ocupantes = new java.util.ArrayList<>();
+        if (ventaRequest.has("nombresOcupantes") && ventaRequest.get("nombresOcupantes").isArray()) {
+            for (JsonNode n : ventaRequest.get("nombresOcupantes")) {
+                if (n != null && n.isTextual()) ocupantes.add(n.asText());
+            }
+        }
+
+        // asientos como objetos {fila,columna,persona}
+        var arrAsientos = f.arrayNode();
+        for (int i = 0; i < posiciones.size(); i++) {
+            JsonNode pos = posiciones.get(i);
+            var obj = f.objectNode();
+            obj.set("fila", pos.get("fila"));
+            obj.set("columna", pos.get("columna"));
+            String persona = null;
+            if (i < ocupantes.size()) {
+                persona = ocupantes.get(i);
+            } else if (compradorEmail != null && !compradorEmail.isBlank()) {
+                persona = compradorEmail;
+            }
+            obj.put("persona", persona != null ? persona : "");
+            arrAsientos.add(obj);
+        }
+        body.set("asientos", arrAsientos);
+
+        // Campos adicionales usados por dino: fecha y precioVenta (si vienen del backend, respetarlos)
+        if (ventaRequest.has("fecha")) {
+            body.set("fecha", ventaRequest.get("fecha"));
+        } else {
+            body.put("fecha", java.time.OffsetDateTime.now().toString());
+        }
+        if (ventaRequest.has("precioVenta")) {
+            body.set("precioVenta", ventaRequest.get("precioVenta"));
+        }
+
+        // incluir datos de comprador y session (por si upstream los usa)
+        body.put("compradorEmail", compradorEmail == null ? "" : compradorEmail);
+        if (sessionId != null && !sessionId.isBlank()) body.put("sessionId", sessionId);
 
         log.info("Proxy→Catedra realizar-venta body={}", body);
 
@@ -237,39 +272,18 @@ public class VentasCatedraProxyController {
                     .body(JsonNode.class);
             
             if (response == null || (response.isArray() && response.size() == 0)) {
-                return ResponseEntity.ok(createMockSales());
+                // No inyectar mocks: devolver arreglo vacío para reflejar el estado real
+                return ResponseEntity.ok(com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.arrayNode());
             }
             return ResponseEntity.ok(response);
         } catch (Exception ex) {
             log.warn("Proxy: error consultando listado de ventas en cátedra: {}", ex.toString());
-            return ResponseEntity.ok(createMockSales());
+            // Mantener política amable pero sin mocks
+            return ResponseEntity.ok(com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.arrayNode());
         }
     }
 
-    private com.fasterxml.jackson.databind.node.ArrayNode createMockSales() {
-        var f = com.fasterxml.jackson.databind.node.JsonNodeFactory.instance;
-        var mockArray = f.arrayNode();
-        var mockVenta = f.objectNode();
-        mockVenta.put("id", 999);
-        mockVenta.put("externalEventId", "1");
-        mockVenta.put("compradorEmail", "test@mock.com");
-        mockVenta.put("estado", "CONFIRMADA");
-        var seats = f.arrayNode();
-        seats.add("r1c1");
-        mockVenta.set("asientos", seats);
-
-        var mockEvento = f.objectNode();
-        mockEvento.put("id", 1);
-        mockEvento.put("externalId", "1");
-        mockEvento.put("nombre", "Evento Mock de Prueba");
-        mockEvento.put("descripcion", "Si ves esto, la comunicación Proxy-Mobile funciona");
-        mockEvento.put("precio", 1000.0);
-        mockVenta.set("evento", mockEvento);
-
-        mockArray.add(mockVenta);
-        log.info("Proxy: devolviendo venta mock para prueba de visibilidad");
-        return mockArray;
-    }
+    // Eliminado: no devolver ventas mock; queremos reflejar el estado real de la cátedra
 
     @GetMapping("/listar-venta/{id}")
     public ResponseEntity<?> obtenerVenta(@PathVariable("id") String ventaId) {

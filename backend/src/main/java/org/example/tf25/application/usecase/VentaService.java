@@ -24,6 +24,7 @@ import org.example.tf25.infrastructure.messaging.VentaKafkaProducer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.client.RestClient;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.time.Instant;
 import java.util.HashSet;
 
@@ -199,6 +200,26 @@ public class VentaService {
             var seatsArr = JsonNodeFactory.instance.arrayNode();
             venta.getAsientosIds().forEach(seatsArr::add);
             payload.set("asientosIds", seatsArr);
+
+            // Campos adicionales para compatibilidad con cátedra (formato dino)
+            try {
+                if (venta.getNombresOcupantes() != null && !venta.getNombresOcupantes().isEmpty()) {
+                    var ocupArr = JsonNodeFactory.instance.arrayNode();
+                    venta.getNombresOcupantes().forEach(ocupArr::add);
+                    payload.set("nombresOcupantes", ocupArr);
+                }
+            } catch (Exception ignored) {}
+
+            // Fecha ISO y precio total (double) para evitar problemas de serialización
+            payload.put("fecha", OffsetDateTime.now().toString());
+            if (venta.getTotal() != null) {
+                payload.put("precioVenta", venta.getTotal().doubleValue());
+            }
+            if (venta.getNombresOcupantes() != null && !venta.getNombresOcupantes().isEmpty()) {
+                var ocupArr = JsonNodeFactory.instance.arrayNode();
+                venta.getNombresOcupantes().forEach(ocupArr::add);
+                payload.set("nombresOcupantes", ocupArr);
+            }
 
             JsonNode resp = proxyRestClient.post()
                     .uri("/api/endpoints/v1/realizar-venta")

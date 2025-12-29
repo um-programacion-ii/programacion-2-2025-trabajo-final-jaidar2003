@@ -5,10 +5,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
-
-import jakarta.servlet.http.HttpServletRequest;
+// No propagamos Authorization al Proxy; el Proxy usa su propio token hacia la cátedra
 
 @Configuration
 public class RestClientConfig {
@@ -32,18 +29,6 @@ public class RestClientConfig {
         return builder
                 .baseUrl(proxyBaseUrl)
                 .requestFactory(factory)
-                .requestInterceptor((request, body, execution) -> {
-                    ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-                    if (attributes != null) {
-                        HttpServletRequest incomingRequest = attributes.getRequest();
-                        String authHeader = incomingRequest.getHeader("Authorization");
-                        if (authHeader != null && !authHeader.isBlank()) {
-                            log.info("Backend: propagando token hacia el Proxy para {} {}", request.getMethod(), request.getURI());
-                            request.getHeaders().set("Authorization", authHeader);
-                        }
-                    }
-                    return execution.execute(request, body);
-                })
                 .build();
     }
 }
